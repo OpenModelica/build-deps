@@ -32,6 +32,7 @@ RUN apt-get install -qy \
       subversion \
       sudo \
       texlive-base \
+      texlive-bibtex-extra \
       texlive-lang-greek \
       texlive-latex-extra \
       unzip \
