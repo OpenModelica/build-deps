@@ -8,10 +8,36 @@ RUN apt-get update && apt-get upgrade -qy && apt-get dist-upgrade -qy
 RUN apt-get install -qy \
       gnupg wget ca-certificates apt-transport-https
 RUN apt-get install -qy \
-      devscripts equivs python3-pip libmldbm-perl \
-      docker.io sudo git subversion texlive-base texlive-latex-extra latexmk gnuplot-nox doxygen \
-      poppler-utils flex aspell bibtex2html zip unzip ocl-icd-opencl-dev cpio xsltproc inkscape \
-      intel-opencl-icd g++ texlive-lang-greek xvfb libcurl4-gnutls-dev pandoc 
+      aspell \
+      bibtex2html \
+      cpio \
+      devscripts \
+      docker.io \
+      doxygen \
+      equivs \
+      flex \
+      g++ \
+      git \
+      gnuplot-nox \
+      inkscape \
+      intel-opencl-icd \
+      latexmk \
+      libcurl4-gnutls-dev \
+      libmldbm-perl \
+      ocl-icd-opencl-dev \
+      pandoc \
+      pocl-opencl-icd \
+      poppler-utils \
+      python3-pip \
+      subversion \
+      sudo \
+      texlive-base \
+      texlive-lang-greek \
+      texlive-latex-extra \
+      unzip \
+      xsltproc \
+      xvfb \
+      zip
 
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts/master/debian/control \
     && mk-build-deps --install -t 'apt-get --force-yes -y' control

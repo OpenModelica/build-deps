@@ -10,7 +10,7 @@ Jenkins[https://test.openmodelica.org/jenkins/].
 ## Build
 
 ```bash
-export TAG=v1.21.0
+export TAG=v1.21.1
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 
@@ -24,7 +24,7 @@ Otherwise run:
 
 ```bash
 export REGISTRY=anheuermann
-export TAG=v1.21.0
+export TAG=v1.21.1
 docker login
 docker image tag build-deps:$(VERSION) $(REGISTRY)/build-deps:$TAG
 ```
