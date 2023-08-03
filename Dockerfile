@@ -31,9 +31,11 @@ RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica-doc/master/UsersGuide/source/requirements.txt \
     && pip2 install --no-cache-dir --upgrade -r requirements.txt \
     && pip3 install --no-cache-dir --upgrade -r requirements.txt \
-    && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite # ComplianceSuite
+    && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite # ComplianceSuite \
+    && pip3 install --no-cache-dir PyGithub
 
 # Clean
 RUN rm -rf /var/lib/apt/lists/* \
     && apt-get clean \
-    && rm -f control requirements.txt *.deb
+    && rm -f control requirements.txt *.deb \
+    && rm -Rf /root/.cache/pip
