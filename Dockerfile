@@ -1,27 +1,80 @@
-FROM ubuntu:focal
+FROM ubuntu:jammy
 
-ARG OCL=16.1.2_x64_rh_6.4.0.37
+LABEL org.opencontainers.image.authors="AnHeuermann"
+
+ENV SHELL /bin/bash
+
+# Non-root user
+ARG USERNAME=openmodelica-user
+
 # Ensure DEBIAN_FRONTEND is only set during build
 ARG DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get upgrade -qy && apt-get dist-upgrade -qy
 RUN apt-get install -qy \
-      gnupg wget ca-certificates apt-transport-https
+  ca-certificates       \
+  curl                  \
+  gnupg                 \
+  lsb-release
+
+# Install build-deps of OpenModelica
+RUN curl -fsSL http://build.openmodelica.org/apt/openmodelica.asc | gpg --dearmor -o /usr/share/keyrings/openmodelica-keyring.gpg
+RUN echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
+  $(lsb_release -cs) nightly" | tee /etc/apt/sources.list.d/openmodelica.list > /dev/null
+RUN echo \
+  "deb-src [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
+  nightly contrib" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null
+RUN apt-get update && apt-get build-dep -qy openmodelica
+
+# Install additional dependencies, e.g. to build the User's Guide
 RUN apt-get install -qy \
-      devscripts equivs python3-pip libmldbm-perl \
-      docker.io sudo git subversion texlive-base texlive-latex-extra latexmk gnuplot-nox doxygen \
-      poppler-utils flex aspell bibtex2html zip unzip ocl-icd-opencl-dev cpio xsltproc inkscape \
-      intel-opencl-icd g++ texlive-lang-greek xvfb libcurl4-gnutls-dev pandoc 
+  aspell                \
+  bibtex2html           \
+  clang-tools           \
+  devscripts            \
+  docker.io             \
+  doxygen               \
+  equivs                \
+  flex                  \
+  git                   \
+  gnuplot-nox           \
+  inkscape              \
+  intel-opencl-icd      \
+  latexmk               \
+  libcurl4-gnutls-dev   \
+  libmldbm-perl         \
+  ocl-icd-opencl-dev    \
+  pandoc                \
+  pocl-opencl-icd       \
+  poppler-utils         \
+  python3-pip           \
+  subversion            \
+  texlive-base          \
+  texlive-bibtex-extra  \
+  texlive-lang-greek    \
+  texlive-latex-extra   \
+  unzip                 \
+  wget                  \
+  xsltproc              \
+  xvfb                  \
+  zip
 
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts/master/debian/control \
-    && mk-build-deps --install -t 'apt-get --force-yes -y' control
+  && mk-build-deps --install -t 'apt-get --force-yes -y' control
 
 # Python packages
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/UsersGuide/source/requirements.txt \
-    && pip3 install --no-cache-dir --upgrade -r requirements.txt \
-    && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
+  && pip3 install --no-cache-dir --upgrade -r requirements.txt \
+  && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
 
 # Clean
 RUN rm -rf /var/lib/apt/lists/* \
-    && apt-get clean \
-    && rm -f control requirements.txt *.deb
+  && apt-get clean \
+  && rm -f control requirements.txt *.deb
+
+# Create non-root user
+RUN useradd -m $USERNAME
+
+ENV USER=$USERNAME
+USER $USERNAME

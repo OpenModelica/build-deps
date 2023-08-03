@@ -10,7 +10,7 @@ Jenkins[https://test.openmodelica.org/jenkins/].
 ## Build
 
 ```bash
-export TAG=v1.21.0
+export TAG=v1.22.0
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 
@@ -24,12 +24,13 @@ Otherwise run:
 
 ```bash
 export REGISTRY=anheuermann
-export TAG=v1.21.0
+export TAG=v1.22.0
 docker login
-docker image tag build-deps:$(VERSION) $(REGISTRY)/build-deps:$TAG
+docker image tag build-deps:$TAG $REGISTRY/build-deps:$TAG
+docker push $REGISTRY/build-deps:$TAG
 ```
 
 ## License
 
-The Dockerfile is taken from [https://github.com/OpenModelica/OpenModelicaBuildScripts](OpenModelica/OpenModelicaBuildScripts).
-No idea what license applies...
+The original Dockerfile are taken from [https://github.com/OpenModelica/OpenModelicaBuildScripts](OpenModelica/OpenModelicaBuildScripts).
+See [LICENSE.md](./LICENSE.md).
