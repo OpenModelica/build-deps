@@ -37,7 +37,9 @@ RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica-doc/master/
 RUN wget cmake.org/files/v3.17/cmake-3.17.2-Linux-x86_64.sh \
     && mkdir -p /opt/cmake-3.17.2 \
     && sh cmake-3.17.2-Linux-x86_64.sh --prefix=/opt/cmake-3.17.2 --skip-license \
-    && rm cmake-3.17.2-Linux-x86_64.sh
+    && rm cmake-3.17.2-Linux-x86_64.sh \
+    && apt-get remove -qy cmake cmake-data
+ENV PATH="$PATH:/opt/cmake-3.17.2/bin"
 
 # Clean
 RUN rm -rf /var/lib/apt/lists/* \
