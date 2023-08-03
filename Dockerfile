@@ -31,6 +31,7 @@ RUN apt-get update && apt-get build-dep -qy openmodelica
 RUN apt-get install -qy \
   aspell                \
   bibtex2html           \
+  ccache                \
   clang-tools           \
   devscripts            \
   docker.io             \
@@ -71,7 +72,8 @@ RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/
 # Clean
 RUN rm -rf /var/lib/apt/lists/* \
   && apt-get clean \
-  && rm -f control requirements.txt *.deb
+  && rm -f control requirements.txt *.deb \
+  && rm /openmodelica-build-deps_1.0_amd64.buildinfo /openmodelica-build-deps_1.0_amd64.changes
 
 # Create non-root user
 RUN useradd -m $USERNAME
