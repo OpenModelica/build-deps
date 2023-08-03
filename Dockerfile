@@ -33,6 +33,12 @@ RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica-doc/master/
     && pip3 install --no-cache-dir --upgrade -r requirements.txt \
     && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite # ComplianceSuite
 
+# Install cmake 3.17.2.
+RUN wget cmake.org/files/v3.17/cmake-3.17.2-Linux-x86_64.sh \
+    && mkdir -p /opt/cmake-3.17.2 \
+    && sh cmake-3.17.2-Linux-x86_64.sh --prefix=/opt/cmake-3.17.2 --skip-license \
+    && rm cmake-3.17.2-Linux-x86_64.sh
+
 # Clean
 RUN rm -rf /var/lib/apt/lists/* \
     && apt-get clean \

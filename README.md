@@ -1,7 +1,7 @@
 # OpenModelica build-deps Docker Image
 
-[![Build v1.16](https://github.com/AnHeuermann/build-deps/actions/workflows/build.yml/badge.svg?branch=releases%2Fv1.16)](https://github.com/AnHeuermann/build-deps/actions/workflows/build.yml)
-[![Publish v1.16](https://github.com/AnHeuermann/build-deps/actions/workflows/publish.yml/badge.svg?branch=releases%2Fv1.16)](https://github.com/AnHeuermann/build-deps/actions/workflows/publish.yml)
+[![Build v1.16-cmake](https://github.com/AnHeuermann/build-deps/actions/workflows/build.yml/badge.svg?branch=releases%2Fv1.16-cmake)](https://github.com/AnHeuermann/build-deps/actions/workflows/build.yml)
+[![Publish v1.16-cmake](https://github.com/AnHeuermann/build-deps/actions/workflows/publish.yml/badge.svg?branch=releases%2Fv1.16-cmake)](https://github.com/AnHeuermann/build-deps/actions/workflows/publish.yml)
 
 The Docker image used to build and deploy
 [OpenModelica](https://github.com/OpenModelica/OpenModelica) with
@@ -10,7 +10,7 @@ Jenkins[https://test.openmodelica.org/jenkins/].
 ## Build
 
 ```bash
-export TAG=v1.16.2
+export TAG=v1.16.3-cmake
 docker build --pull --no-cache --tag build-deps:$(TAG) .
 ```
 
@@ -24,7 +24,7 @@ Otherwise run:
 
 ```bash
 export REGISTRY=anheuermann
-export TAG=v1.16.2
+export TAG=v1.16.3-cmake
 docker login
 docker image tag build-deps:$(VERSION) $(REGISTRY)/build-deps:$(TAG)
 ```
