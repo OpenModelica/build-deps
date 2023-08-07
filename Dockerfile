@@ -46,6 +46,7 @@ RUN apt-get install -qy \
   libcurl4-gnutls-dev   \
   libmldbm-perl         \
   ocl-icd-opencl-dev    \
+  opencl-headers        \
   pandoc                \
   pocl-opencl-icd       \
   poppler-utils         \
@@ -68,6 +69,12 @@ RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/UsersGuide/source/requirements.txt \
   && pip3 install --no-cache-dir --upgrade -r requirements.txt \
   && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
+
+# Set locale
+ENV LANGUAGE en_US:en
+ENV LANG C.UTF-8
+ENV LC_ALL C.UTF-8
+RUN apt-get install -qy locales
 
 # Clean
 RUN rm -rf /var/lib/apt/lists/* \
