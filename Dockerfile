@@ -4,9 +4,6 @@ LABEL org.opencontainers.image.authors="AnHeuermann"
 
 ENV SHELL /bin/bash
 
-# Non-root user
-ARG USERNAME=openmodelica-user
-
 # Ensure DEBIAN_FRONTEND is only set during build
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -81,9 +78,3 @@ RUN rm -rf /var/lib/apt/lists/* \
   && apt-get clean \
   && rm -f control requirements.txt *.deb \
   && rm /openmodelica-build-deps_1.0_amd64.buildinfo /openmodelica-build-deps_1.0_amd64.changes
-
-# Create non-root user
-RUN useradd -m $USERNAME
-
-ENV USER=$USERNAME
-USER $USERNAME

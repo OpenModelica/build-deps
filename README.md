@@ -36,9 +36,18 @@ publish the Docker image to [https://hub.docker.com/repository/docker/anheuerman
 ## Build
 
 ```bash
-export TAG=v1.22.0
+export TAG=v1.22.1
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
+
+or
+
+```bash
+export TAG=v1.22.1
+docker build --pull --no-cache --squash --tag build-deps:$TAG .
+```
+
+to reduce image size.
 
 ## Upload
 
@@ -46,14 +55,14 @@ The [publish.yml](./.github/workflows/publish.yml) workflow will build and uploa
 Docker image to [https://hub.docker.com/repository/docker/anheuermann/openmodelica-build-deps](anheuermann/openmodelica-build-deps)
 for each release.
 
-To do it manually run:
+To upload to docker.openmodelica.org (you'll need write access) run:
 
 ```bash
-export REGISTRY=anheuermann
-export TAG=v1.22.0
+export REGISTRY=docker.openmodelica.org
+export TAG=v1.22.1
 docker login
-docker image tag build-deps:$TAG $REGISTRY/openmodelica-build-deps:$TAG
-docker push $REGISTRY/openmodelica-build-deps:$TAG
+docker image tag build-deps:$TAG $REGISTRY/build-deps:$TAG
+docker push $REGISTRY/build-deps:$TAG
 ```
 
 ## License
