@@ -51,6 +51,7 @@ RUN apt-get install -qy \
   pocl-opencl-icd       \
   poppler-utils         \
   python3-pip           \
+  qtwebengine5-dev      \
   subversion            \
   texlive-base          \
   texlive-bibtex-extra  \
