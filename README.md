@@ -36,14 +36,14 @@ publish the Docker image to [https://hub.docker.com/repository/docker/anheuerman
 ## Build
 
 ```bash
-export TAG=v1.22.1
+export TAG=v1.22.2
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 
 or
 
 ```bash
-export TAG=v1.22.1
+export TAG=v1.22.2
 docker build --pull --no-cache --squash --tag build-deps:$TAG .
 ```
 
@@ -59,7 +59,7 @@ To upload to docker.openmodelica.org (you'll need write access) run:
 
 ```bash
 export REGISTRY=docker.openmodelica.org
-export TAG=v1.22.1
+export TAG=v1.22.2
 docker login
 docker image tag build-deps:$TAG $REGISTRY/build-deps:$TAG
 docker push $REGISTRY/build-deps:$TAG
