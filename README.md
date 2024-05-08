@@ -17,7 +17,7 @@ docker build --pull --no-cache --tag build-deps:$TAG .
 ## Upload
 
 The [publish.yml](./.github/workflows/publish.yml) workflow will build and upload the
-Docker image to [https://hub.docker.com/repository/docker/openmodelica/build-deps](openmodelica/build-deps)
+Docker image to [openmodelica/build-deps](https://hub.docker.com/repository/docker/openmodelica/build-deps)
 for each release.
 
 Otherwise run:
