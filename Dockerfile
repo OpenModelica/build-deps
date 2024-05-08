@@ -21,7 +21,7 @@ RUN echo \
   $(lsb_release -cs) nightly" | tee /etc/apt/sources.list.d/openmodelica.list > /dev/null
 RUN echo \
   "deb-src [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
-  nightly contrib" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null
+  $(lsb_release -cs) nightly" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null
 RUN apt-get update && apt-get build-dep -qy openmodelica
 
 # Install additional dependencies, e.g. to build the User's Guide
