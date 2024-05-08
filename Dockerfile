@@ -51,6 +51,7 @@ RUN apt-get install -qy \
   pocl-opencl-icd       \
   poppler-utils         \
   python3-pip           \
+  python3-venv          \
   subversion            \
   texlive-base          \
   texlive-bibtex-extra  \
@@ -65,10 +66,18 @@ RUN apt-get install -qy \
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts/master/debian/control \
   && mk-build-deps --install -t 'apt-get --force-yes -y' control
 
-# Python packages
+# Create and enable virtual environment
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Python packages in virtual environment
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/UsersGuide/source/requirements.txt \
-  && pip3 install --no-cache-dir --upgrade -r requirements.txt \
-  && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
+  && pip install --no-cache-dir --upgrade -r requirements.txt \
+  && pip install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
+
+RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/UsersGuide/source/requirements.txt \
+  && pip install --no-cache-dir --upgrade -r requirements.txt \
+  && pip install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
 
 # Set locale
 ENV LANGUAGE en_US:en
