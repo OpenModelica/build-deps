@@ -5,12 +5,12 @@
 
 The Docker image used to build and deploy
 [OpenModelica](https://github.com/OpenModelica/OpenModelica) with
-Jenkins[https://test.openmodelica.org/jenkins/].
+[Jenkins](https://test.openmodelica.org/jenkins/).
 
 ## Build
 
 ```bash
-export TAG=v1.16.4
+export TAG=v1.16.5
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 
@@ -24,7 +24,7 @@ Otherwise run:
 
 ```bash
 export REGISTRY=openmodelica
-export TAG=v1.16.4
+export TAG=v1.16.5
 docker login
 docker image tag build-deps:$TAG $REGISTRY/build-deps:$TAG
 docker push $REGISTRY/build-deps:$TAG
