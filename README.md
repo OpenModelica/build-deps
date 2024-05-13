@@ -27,7 +27,7 @@ publish the Docker image to [openmodelica/build-deps](https://hub.docker.com/rep
 ## Build
 
 ```bash
-export TAG=v1.23.0
+export TAG=v1.23.0-wip
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 
@@ -41,7 +41,7 @@ To do it manually run:
 
 ```bash
 export REGISTRY=openmodelica
-export TAG=v1.23.0
+export TAG=v1.23.0-wip
 docker login
 docker image tag build-deps:$TAG $REGISTRY/build-deps:$TAG
 docker push $REGISTRY/build-deps:$TAG
