@@ -21,10 +21,12 @@ RUN apt-get install -qy \
 RUN curl -fsSL http://build.openmodelica.org/apt/openmodelica.asc | gpg --dearmor -o /usr/share/keyrings/openmodelica-keyring.gpg
 RUN echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
-  $(lsb_release -cs) nightly" | tee /etc/apt/sources.list.d/openmodelica.list > /dev/null
+  $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1) \
+  nightly" | tee /etc/apt/sources.list.d/openmodelica.list > /dev/null
 RUN echo \
   "deb-src [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
-  nightly contrib" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null
+  $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1) \
+  nightly" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null
 RUN apt-get update && apt-get build-dep -qy openmodelica
 
 # Install additional dependencies, e.g. to build the User's Guide
@@ -61,6 +63,19 @@ RUN apt-get install -qy \
   xsltproc              \
   xvfb                  \
   zip
+
+# Install the qt5 and qt6 packages needed to build the qt clients
+RUN apt-get install -qy \
+  qtwebengine5-dev \
+  qt6-base-dev \
+  libqt6svg6-dev \
+  qt6-tools-dev \
+  qt6-tools-dev-tools \
+  libqt6opengl6-dev \
+  libqt6openglwidgets6 \
+  qt6-webengine-dev \
+  qt6-scxml-dev \
+  libqt6core5compat6-dev
 
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts/master/debian/control \
   && mk-build-deps --install -t 'apt-get --force-yes -y' control
