@@ -49,7 +49,7 @@ for each release.
 To do it manually run:
 
 ```bash
-export REGISTRY=OpenModelica
+export REGISTRY=openmodelica
 export TAG=v1.22.0
 docker login
 docker image tag build-deps:$TAG $REGISTRY/build-deps:$TAG
