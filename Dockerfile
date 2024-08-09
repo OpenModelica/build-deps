@@ -14,17 +14,16 @@ RUN apt-get update && apt-get upgrade -qy && apt-get dist-upgrade -qy
 RUN apt-get install -qy \
   ca-certificates       \
   curl                  \
-  gnupg                 \
-  lsb-release
+  gnupg
 
 # Install build-deps of OpenModelica
 RUN curl -fsSL http://build.openmodelica.org/apt/openmodelica.asc | gpg --dearmor -o /usr/share/keyrings/openmodelica-keyring.gpg
 RUN echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
-  $(lsb_release -cs) nightly" | tee /etc/apt/sources.list.d/openmodelica.list > /dev/null
+  jammy nightly" | tee /etc/apt/sources.list.d/openmodelica.list > /dev/null
 RUN echo \
   "deb-src [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
-  nightly contrib" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null
+  jammy nightly " | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null
 RUN apt-get update && apt-get build-dep -qy openmodelica
 
 # Install additional dependencies, e.g. to build the User's Guide
@@ -80,7 +79,7 @@ RUN apt-get install -qy locales
 RUN rm -rf /var/lib/apt/lists/* \
   && apt-get clean \
   && rm -f control requirements.txt *.deb \
-  && rm /openmodelica-build-deps_1.0_amd64.buildinfo /openmodelica-build-deps_1.0_amd64.changes
+  && rm /build-deps_1.0_amd64.buildinfo /build-deps_1.0_amd64.changes
 
 # Create non-root user
 RUN useradd -m $USERNAME
