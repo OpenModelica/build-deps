@@ -14,7 +14,7 @@ its own branch.
 Each branch has tags for each patch version.
 
 When creating a release form a tag the [workflow](./.github/workflows/publish.yml) will
-publish the Docker image to [https://hub.docker.com/repository/docker/anheuermann/openmodelica-build-deps](anheuermann/openmodelica-build-deps).
+publish the Docker image to [https://hub.docker.com/repository/docker/anheuermann/openmodelica-build-deps](https://hub.docker.com/repository/docker/anheuermann/openmodelica-build-deps).
 
 ### Ubuntu based Images
 
