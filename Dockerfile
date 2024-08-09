@@ -79,7 +79,7 @@ RUN apt-get install -qy locales
 RUN rm -rf /var/lib/apt/lists/* \
   && apt-get clean \
   && rm -f control requirements.txt *.deb \
-  && rm /build-deps_1.0_amd64.buildinfo /build-deps_1.0_amd64.changes
+  && rm /openmodelica-build-deps_1.0_amd64.buildinfo /openmodelica-build-deps_1.0_amd64.changes
 
 # Create non-root user
 RUN useradd -m $USERNAME
