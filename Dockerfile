@@ -13,9 +13,6 @@ LABEL org.opencontainers.image.source="https://github.com/OpenModelica/build-dep
 LABEL org.opencontainers.image.license="MIT"
 
 ENV SHELL=/bin/bash
-ENV LANGUAGE=en_US:en
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
 
 # Ensure DEBIAN_FRONTEND is only set during build
 ARG DEBIAN_FRONTEND=noninteractive
@@ -29,7 +26,7 @@ RUN apt-get update                                                              
     curl                                                                                                                                    \
     gnupg                                                                                                                                   \
     lsb-release                                                                                                                             \
-  && curl -fsSL http://build.openmodelica.org/apt/openmodelica.asc | gpg --dearmor -o /usr/share/keyrings/openmodelica-keyring.gpg          \
+  && curl -fsSL https://build.openmodelica.org/apt/openmodelica.asc | gpg --dearmor -o /usr/share/keyrings/openmodelica-keyring.gpg          \
   && echo                                                                                                                                   \
     "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt      \
     $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1)                                  \
@@ -45,7 +42,6 @@ RUN apt-get update                                                              
 
 # Install additional dependencies
 #   - tools to build the User's Guide
-#   - Python system packages
 #   - Python system packages
 #   - Qt5, Qt6 packages
 RUN apt-get update                      \
@@ -114,3 +110,8 @@ RUN apt-get update                      \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir ompython==3.6.0
+
+# Set locale
+ENV LANGUAGE=en_US:en
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8

@@ -18,7 +18,7 @@ When creating a release form a tag the
 
 ### Ubuntu based Images
 
-- 24.04 Noble: [release/v1.26](https://github.com/OpenModelica/build-deps/tree/releases/v1.26)
+- 24.04 Noble: [releases/v1.26](https://github.com/OpenModelica/build-deps/tree/releases/v1.26)
 - 22.04 Jammy:
   - [releases/v1.22](https://github.com/OpenModelica/build-deps/tree/releases/v1.22)
   - [releases/v1.22-qtwebengine](https://github.com/OpenModelica/build-deps/tree/releases/v1.22-qtwebengine)
