@@ -18,7 +18,10 @@ When creating a release form a tag the
 
 ### Ubuntu based Images
 
-- 22.04 Jammy: [releases/v1.22](https://github.com/OpenModelica/build-deps/tree/releases/v1.22)
+- 22.04 Jammy:
+  - [releases/v1.22](https://github.com/OpenModelica/build-deps/tree/releases/v1.22)
+  - [releases/v1.22-qtwebengine](https://github.com/OpenModelica/build-deps/tree/releases/v1.22-qtwebengine)
+  - [releases/v1.24-qt5qt6](https://github.com/OpenModelica/build-deps/tree/releases/v1.22-qtwebengine)
 - 20.04 Focal: [releases/v1.21](https://github.com/OpenModelica/build-deps/tree/releases/v1.21)
 - 18.04 Bionic + cmake: [releases/v1.16-cmake](https://github.com/OpenModelica/build-deps/tree/releases/v1.16-cmake)
 - 18.04 Bionic: [releases/v1.16](https://github.com/OpenModelica/build-deps/tree/releases/v1.16)
