@@ -3,33 +3,78 @@ name: Publish Docker Image
 on:
   release:
     types: [published]
+  workflow_dispatch:
+
+# Required for cosign keyless (OIDC) to mint tokens
+permissions:
+  contents: read
+  packages: write
+  id-token: write # needed for signing the images with GitHub OIDC Token
 
 jobs:
   push_to_registry:
-    name: Push Docker image to Docker Hub
+    name: Push Docker image to GitHub Container registry
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - name: Check out the repo
         uses: actions/checkout@v5
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v4.0.0
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3.6.0
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: openmodelica/build-deps
+          images: ghcr.io/openmodelica/build-deps
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
-          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          annotations: ${{ steps.meta.outputs.annotations }}
+          push: true
+
+      - name: Sign the images with GitHub OIDC Token (tag-based)
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          [ -n "${TAGS:-}" ] || { echo "No tags found"; exit 1; }
+          images=""
+          while IFS= read -r tag; do
+            tag="$(echo "$tag" | xargs)"   # trim whitespace
+            [ -z "$tag" ] && continue
+            images+="${tag} "
+            echo "Signing tag: ${tag}"
+            cosign sign --yes "${tag}"
+          done < <(echo "${TAGS:-}" | tr ',' '\n')
+
+      - name: Verify signatures (tag-based)
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          [ -n "${TAGS:-}" ] || { echo "No tags found"; exit 1; }
+          CERT_ID="https://github.com/${{ github.repository }}/.github/workflows/publish.yml@${{ github.ref }}"
+          CERT_ISSUER="https://token.actions.githubusercontent.com"
+          while IFS= read -r tag; do
+            tag="$(echo "$tag" | xargs)"
+            [ -z "$tag" ] && continue
+            echo "Verifying tag: ${tag}"
+            cosign verify \
+              --certificate-identity="${CERT_ID}" \
+              --certificate-oidc-issuer="${CERT_ISSUER}" \
+              "${tag}"
+          done < <(echo "${TAGS:-}" | tr ',' '\n')

@@ -14,7 +14,7 @@ and has its own branch. Each branch has tags for each patch version.
 
 When creating a release form a tag the
 [workflow](./.github/workflows/publish.yml) will publish the Docker image to
-[OpenModelica/build-deps](https://hub.docker.com/repository/docker/OpenModelica/build-deps).
+[GitHub Container registry](https://github.com/OpenModelica/openmodelica-build-deps/pkgs/container/build-deps).
 
 ### Ubuntu based Images
 
@@ -41,20 +41,10 @@ docker build --pull --no-cache --tag build-deps:$TAG .
 
 ## Upload
 
-The [publish.yml](./.github/workflows/publish.yml) workflow will build and
+The [publish.yml](./.github/workflows/publish.yml) workflow will build, sign and
 upload the Docker image to
-[OpenModelica/build-deps](https://hub.docker.com/repository/docker/OpenModelica/build-deps)
+[GitHub Container registry](https://github.com/OpenModelica/openmodelica-build-deps/pkgs/container/build-deps)
 for each release.
-
-To do it manually run:
-
-```bash
-export REGISTRY=openmodelica
-export TAG=v1.22.0
-docker login
-docker image tag build-deps:$TAG $REGISTRY/build-deps:$TAG
-docker push $REGISTRY/build-deps:$TAG
-```
 
 ## License
 
