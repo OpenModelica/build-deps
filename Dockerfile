@@ -1,8 +1,18 @@
 FROM ubuntu:jammy
 
-LABEL org.opencontainers.image.authors="AnHeuermann"
+# Image / OCI metadata
+LABEL maintainer="AnHeuermann"
+LABEL description="OpenModelica build-deps Docker Image "
+LABEL organization="OpenModelica"
 
-ENV SHELL /bin/bash
+LABEL org.opencontainers.image.vendor="OpenModelica"
+LABEL org.opencontainers.image.authors="AnHeuermann"
+LABEL org.opencontainers.image.version="v1.22.0"
+LABEL org.opencontainers.image.description="OpenModelica build-deps Docker Image "
+LABEL org.opencontainers.image.source="https://github.com/OpenModelica/build-deps"
+LABEL org.opencontainers.image.license="MIT"
+
+ENV SHELL=/bin/bash
 
 # Non-root user
 ARG USERNAME=openmodelica-user
@@ -70,9 +80,9 @@ RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/
   && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
 
 # Set locale
-ENV LANGUAGE en_US:en
-ENV LANG C.UTF-8
-ENV LC_ALL C.UTF-8
+ENV LANGUAGE=en_US:en
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
 RUN apt-get install -qy locales
 
 # Clean
