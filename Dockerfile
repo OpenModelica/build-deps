@@ -1,4 +1,4 @@
-FROM ubuntu:jammy
+FROM ubuntu:noble
 
 # Image / OCI metadata
 LABEL maintainer="AnHeuermann"
@@ -7,7 +7,7 @@ LABEL organization="OpenModelica"
 
 LABEL org.opencontainers.image.vendor="OpenModelica"
 LABEL org.opencontainers.image.authors="AnHeuermann"
-LABEL org.opencontainers.image.version="v1.22.0"
+LABEL org.opencontainers.image.version="v1.26.0"
 LABEL org.opencontainers.image.description="OpenModelica build-deps Docker Image "
 LABEL org.opencontainers.image.source="https://github.com/OpenModelica/build-deps"
 LABEL org.opencontainers.image.license="MIT"
@@ -17,90 +17,101 @@ ENV SHELL=/bin/bash
 # Ensure DEBIAN_FRONTEND is only set during build
 ARG DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && apt-get upgrade -qy && apt-get dist-upgrade -qy
-RUN apt-get install -qy \
-  ca-certificates       \
-  curl                  \
-  gnupg                 \
-  lsb-release
+# Install OpenModelica build-deps
+RUN apt-get update                                                                                                                          \
+  && apt-get upgrade -qy                                                                                                                    \
+  && apt-get dist-upgrade -qy                                                                                                               \
+  && apt-get install -qy                                                                                                                    \
+    ca-certificates                                                                                                                         \
+    curl                                                                                                                                    \
+    gnupg                                                                                                                                   \
+    lsb-release                                                                                                                             \
+  && curl -fsSL https://build.openmodelica.org/apt/openmodelica.asc | gpg --dearmor -o /usr/share/keyrings/openmodelica-keyring.gpg          \
+  && echo                                                                                                                                   \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt      \
+    $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1)                                  \
+    nightly" | tee /etc/apt/sources.list.d/openmodelica.list > /dev/null                                                                    \
+  && echo                                                                                                                                   \
+    "deb-src [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt  \
+    $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1)                                  \
+    nightly" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null                                                                 \
+  && apt-get update                                                                                                                         \
+  && apt-get build-dep -qy openmodelica                                                                                                     \
+  && apt-get clean                                                                                                                          \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install build-deps of OpenModelica
-RUN curl -fsSL http://build.openmodelica.org/apt/openmodelica.asc | gpg --dearmor -o /usr/share/keyrings/openmodelica-keyring.gpg
-RUN echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
-  $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1) \
-  nightly" | tee /etc/apt/sources.list.d/openmodelica.list > /dev/null
-RUN echo \
-  "deb-src [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt \
-  $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1) \
-  nightly" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null
-RUN apt-get update && apt-get build-dep -qy openmodelica
+# Install additional dependencies
+#   - tools to build the User's Guide
+#   - Python system packages
+#   - Qt5, Qt6 packages
+RUN apt-get update                      \
+  && apt-get install -qy                \
+    aspell                              \
+    bibtex2html                         \
+    bison                               \
+    ccache                              \
+    clang-tools                         \
+    devscripts                          \
+    docker.io                           \
+    doxygen                             \
+    equivs                              \
+    flex                                \
+    git                                 \
+    gnuplot-nox                         \
+    inkscape                            \
+    intel-opencl-icd                    \
+    latexmk                             \
+    libcurl4-gnutls-dev                 \
+    libmldbm-perl                       \
+    libqt6core5compat6-dev              \
+    libqt6opengl6-dev                   \
+    libqt6openglwidgets6                \
+    libqt6svg6-dev                      \
+    locales                             \
+    ocl-icd-opencl-dev                  \
+    opencl-headers                      \
+    pandoc                              \
+    pipx                                \
+    pocl-opencl-icd                     \
+    poppler-utils                       \
+    python3-bibtexparser                \
+    python3-breathe                     \
+    python3-git                         \
+    python3-github                      \
+    python3-junitxml                    \
+    python3-natsort                     \
+    python3-pip                         \
+    python3-simplejson                  \
+    python3-sphinx                      \
+    python3-sphinxcontrib.bibtex        \
+    python3-sphinxcontrib.programoutput \
+    python3-svgwrite                    \
+    python3-venv                        \
+    qt6-base-dev                        \
+    qt6-scxml-dev                       \
+    qt6-tools-dev                       \
+    qt6-tools-dev-tools                 \
+    qt6-webengine-dev                   \
+    qtwebengine5-dev                    \
+    subversion                          \
+    texlive-base                        \
+    texlive-bibtex-extra                \
+    texlive-lang-greek                  \
+    texlive-latex-extra                 \
+    unzip                               \
+    wget                                \
+    xsltproc                            \
+    xvfb                                \
+    zip                                 \
+  && apt-get clean                      \
+  && rm -rf /var/lib/apt/lists/*
 
-# Install additional dependencies, e.g. to build the User's Guide
-RUN apt-get install -qy \
-  aspell                \
-  bibtex2html           \
-  bison                 \
-  ccache                \
-  clang-tools           \
-  devscripts            \
-  docker.io             \
-  doxygen               \
-  equivs                \
-  flex                  \
-  git                   \
-  gnuplot-nox           \
-  inkscape              \
-  intel-opencl-icd      \
-  latexmk               \
-  libcurl4-gnutls-dev   \
-  libmldbm-perl         \
-  ocl-icd-opencl-dev    \
-  opencl-headers        \
-  pandoc                \
-  pocl-opencl-icd       \
-  poppler-utils         \
-  python3-pip           \
-  subversion            \
-  texlive-base          \
-  texlive-bibtex-extra  \
-  texlive-lang-greek    \
-  texlive-latex-extra   \
-  unzip                 \
-  wget                  \
-  xsltproc              \
-  xvfb                  \
-  zip
-
-# Install the qt5 and qt6 packages needed to build the qt clients
-RUN apt-get install -qy \
-  qtwebengine5-dev \
-  qt6-base-dev \
-  libqt6svg6-dev \
-  qt6-tools-dev \
-  qt6-tools-dev-tools \
-  libqt6opengl6-dev \
-  libqt6openglwidgets6 \
-  qt6-webengine-dev \
-  qt6-scxml-dev \
-  libqt6core5compat6-dev
-
-RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts/master/debian/control \
-  && mk-build-deps --install -t 'apt-get --force-yes -y' control
-
-# Python packages
-RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/UsersGuide/source/requirements.txt \
-  && pip3 install --no-cache-dir --upgrade -r requirements.txt \
-  && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
+# Python default virtual environment, OMPython
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir ompython==3.6.0
 
 # Set locale
 ENV LANGUAGE=en_US:en
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
-RUN apt-get install -qy locales
-
-# Clean
-RUN rm -rf /var/lib/apt/lists/* \
-  && apt-get clean \
-  && rm -f control requirements.txt *.deb \
-  && rm /openmodelica-build-deps_1.0_amd64.buildinfo /openmodelica-build-deps_1.0_amd64.changes
