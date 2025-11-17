@@ -3,7 +3,7 @@
 [![Build Docker Image](https://github.com/OpenModelica/build-deps/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/OpenModelica/build-deps/actions/workflows/build.yml)
 [![Publish Docker Image](https://github.com/OpenModelica/build-deps/actions/workflows/publish.yml/badge.svg)](https://github.com/OpenModelica/build-deps/actions/workflows/publish.yml)
 
-The Docker image used to build and deploy
+The Docker images used to build and deploy
 [OpenModelica](https://github.com/OpenModelica/OpenModelica) with
 [Jenkins](https://test.openmodelica.org/jenkins/).
 
@@ -35,7 +35,7 @@ When creating a release form a tag the
 ## Build
 
 ```bash
-export TAG=v1.22.0
+export TAG=v1.22.3
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 
