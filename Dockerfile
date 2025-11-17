@@ -30,6 +30,7 @@ RUN apt-get update && apt-get build-dep -qy openmodelica
 RUN apt-get install -qy \
   aspell                \
   bibtex2html           \
+  bison                 \
   ccache                \
   clang-tools           \
   devscripts            \
