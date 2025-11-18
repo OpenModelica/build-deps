@@ -105,7 +105,7 @@ RUN pip install --no-cache-dir                                                 \
     svgwrite                                                                   \
     PyGithub                                                                   \
   && pip install --no-cache-dir -r                                             \
-    https://github.com/OpenModelica/OpenModelica/blob/9c0dc9a8ab50ba652109584cb3fecaef86640b66/doc/UsersGuide/source/requirements.txt
+    https://raw.githubusercontent.com/OpenModelica/OpenModelica/9c0dc9a8ab50ba652109584cb3fecaef86640b66/doc/UsersGuide/source/requirements.txt
 
 # Set locale
 ENV LANGUAGE=en_US:en
