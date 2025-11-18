@@ -94,6 +94,8 @@ RUN apt-get update                                                             \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Python packages in a default virtual environment
+# Use permalink for doc/UsersGuide/source/requirements.txt to keep builds
+# deterministic.
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir                                                 \
@@ -103,7 +105,7 @@ RUN pip install --no-cache-dir                                                 \
     svgwrite                                                                   \
     PyGithub                                                                   \
   && pip install --no-cache-dir -r                                             \
-    https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/UsersGuide/source/requirements.txt
+    https://github.com/OpenModelica/OpenModelica/blob/9c0dc9a8ab50ba652109584cb3fecaef86640b66/doc/UsersGuide/source/requirements.txt
 
 # Set locale
 ENV LANGUAGE=en_US:en
