@@ -72,6 +72,8 @@ RUN apt-get update                                                             \
     pandoc                                                                     \
     pocl-opencl-icd                                                            \
     poppler-utils                                                              \
+    python3-pip                                                                \
+    python3-venv                                                               \
     qt6-base-dev                                                               \
     qt6-scxml-dev                                                              \
     qt6-tools-dev                                                              \
