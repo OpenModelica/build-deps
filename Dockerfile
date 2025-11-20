@@ -99,11 +99,12 @@ RUN apt-get update                                                             \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir                                                 \
-    ompython==3.6.0                                                            \
     junit_xml                                                                  \
+    lxml                                                                       \
+    ompython==3.6.0                                                            \
+    PyGithub                                                                   \
     simplejson                                                                 \
     svgwrite                                                                   \
-    PyGithub                                                                   \
   && pip install --no-cache-dir -r                                             \
     https://raw.githubusercontent.com/OpenModelica/OpenModelica/9c0dc9a8ab50ba652109584cb3fecaef86640b66/doc/UsersGuide/source/requirements.txt
 
