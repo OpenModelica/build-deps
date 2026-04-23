@@ -41,7 +41,7 @@ When creating a release form a tag the
 ## Build
 
 ```bash
-export TAG=v1.26.0
+export TAG=v1.26.1
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 

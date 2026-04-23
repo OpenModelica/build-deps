@@ -2,12 +2,12 @@ FROM ubuntu:noble
 
 # Image / OCI metadata
 LABEL maintainer="AnHeuermann"
-LABEL description="OpenModelica build-deps Docker Image "
+LABEL description="OpenModelica build-deps Docker Image"
 LABEL organization="OpenModelica"
 
 LABEL org.opencontainers.image.vendor="OpenModelica"
 LABEL org.opencontainers.image.authors="AnHeuermann"
-LABEL org.opencontainers.image.version="v1.26.0"
+LABEL org.opencontainers.image.version="v1.26.1"
 LABEL org.opencontainers.image.description="OpenModelica build-deps Docker Image "
 LABEL org.opencontainers.image.source="https://github.com/OpenModelica/build-deps"
 LABEL org.opencontainers.image.license="MIT"
@@ -75,6 +75,7 @@ RUN apt-get update                                                             \
     python3-pip                                                                \
     python3-venv                                                               \
     qt6-base-dev                                                               \
+    qt6-httpserver-dev                                                         \
     qt6-scxml-dev                                                              \
     qt6-tools-dev                                                              \
     qt6-tools-dev-tools                                                        \
