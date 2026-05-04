@@ -79,6 +79,8 @@ RUN apt-get update                                                             \
     qt6-tools-dev                                                              \
     qt6-tools-dev-tools                                                        \
     qt6-webengine-dev                                                          \
+    qt6-httpserver-dev                                                         \
+    qt6-websockets-dev                                                         \
     qtwebengine5-dev                                                           \
     subversion                                                                 \
     texlive-base                                                               \
