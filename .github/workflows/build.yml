@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - 'releases/**'
+    tags:
+      - v*
   pull_request:
     branches:
       - main
@@ -17,17 +19,19 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
-          images: openmodelica/build-deps
+          images: ghcr.io/openmodelica/build-deps
 
       - name: Build Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./Dockerfile
+          tags: ${{ steps.meta.outputs.tags }}
+          annotations: ${{ steps.meta.outputs.annotations }}
           push: false

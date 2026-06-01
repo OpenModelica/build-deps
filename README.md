@@ -16,20 +16,13 @@ docker build --pull --no-cache --tag build-deps:$TAG .
 
 ## Upload
 
-The [publish.yml](./.github/workflows/publish.yml) workflow will build and upload the
-Docker image to [openmodelica/build-deps](https://hub.docker.com/repository/docker/openmodelica/build-deps)
+The [publish.yml](./.github/workflows/publish.yml) workflow will build, sign and
+upload the Docker image to
+[GitHub Container registry](https://github.com/OpenModelica/openmodelica-build-deps/pkgs/container/build-deps)
 for each release.
-
-To do it manually run:
-
-```bash
-export REGISTRY=openmodelica
-export TAG=v1.22.3
-docker login
-docker image tag build-deps:$TAG $REGISTRY/build-deps:$TAG
-docker push $REGISTRY/build-deps:$TAG
-```
 
 ## License
 
+The original Dockerfile was taken from
+[OpenModelica/OpenModelicaBuildScripts](https://github.com/OpenModelica/OpenModelicaBuildScripts).
 See [LICENSE.md](./LICENSE.md).
