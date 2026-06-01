@@ -1,0 +1,30 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v6.0.2
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Only mark as latest when the tag is on the default branch
+          BASE_BRANCH=$(gh api repos/${{ github.repository }} --jq '.default_branch')
+          ON_DEFAULT=$(git branch -r --contains "${{ github.ref_name }}" | grep -qE "origin/${BASE_BRANCH}$" && echo true || echo false)
+          gh release create "${{ github.ref_name }}" \
+            --title "${{ github.ref_name }}" \
+            --generate-notes \
+            --verify-tag \
+            --latest="${ON_DEFAULT}"
