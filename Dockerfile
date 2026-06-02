@@ -163,10 +163,19 @@ RUN apt-get install -qy                                                        \
 RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts/master/debian/control \
   && mk-build-deps --install -t 'apt-get --force-yes -y' control
 
-# Python packages
-RUN wget https://raw.githubusercontent.com/OpenModelica/OpenModelica/master/doc/UsersGuide/source/requirements.txt \
-  && pip3 install --no-cache-dir --upgrade -r requirements.txt \
-  && pip3 install --no-cache-dir --upgrade junit_xml simplejson svgwrite PyGithub
+# Install Python packages in a default virtual environment
+# Use permalink for doc/UsersGuide/source/requirements.txt to keep builds
+# deterministic.
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+RUN pip3 install --no-cache-dir                                                \
+    junit_xml                                                                  \
+    ompython==3.6.0                                                            \
+    PyGithub                                                                   \
+    simplejson                                                                 \
+    svgwrite                                                                   \
+  && pip3 install --no-cache-dir -r                                            \
+    https://raw.githubusercontent.com/OpenModelica/OpenModelica/9c0dc9a8ab50ba652109584cb3fecaef86640b66/doc/UsersGuide/source/requirements.txt
 
 # Set locale
 ENV LANGUAGE=en_US:en
