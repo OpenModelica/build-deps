@@ -59,6 +59,7 @@ RUN apt-get install -qy                                                        \
   gnuplot-nox                                                                  \
   inkscape                                                                     \
   intel-opencl-icd                                                             \
+  jq                                                                           \
   latexmk                                                                      \
   libcurl4-gnutls-dev                                                          \
   libmldbm-perl                                                                \
