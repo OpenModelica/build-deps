@@ -61,6 +61,7 @@ RUN apt-get install -qy                                                        \
   intel-opencl-icd                                                             \
   jq                                                                           \
   latexmk                                                                      \
+  psmisc                                                                       \
   libcurl4-gnutls-dev                                                          \
   libmldbm-perl                                                                \
   ocl-icd-opencl-dev                                                           \
