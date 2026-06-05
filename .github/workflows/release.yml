@@ -24,9 +24,13 @@ jobs:
           BASE_BRANCH=$(gh api repos/${{ github.repository }} --jq '.default_branch')
           ON_DEFAULT=$(git branch -r --contains "${{ github.ref_name }}" | grep -qE "origin/${BASE_BRANCH}$" && echo true || echo false)
           if gh release view "${{ github.ref_name }}" &>/dev/null; then
+            NOTES=$(gh api repos/${{ github.repository }}/releases/generate-notes \
+              --method POST \
+              -f tag_name="${{ github.ref_name }}" \
+              --jq '.body')
             gh release edit "${{ github.ref_name }}" \
               --title "${{ github.ref_name }}" \
-              --generate-notes \
+              --notes "${NOTES}" \
               --latest="${ON_DEFAULT}"
           else
             gh release create "${{ github.ref_name }}" \
