@@ -168,6 +168,7 @@ RUN apt-get install -qy                                                        \
 
 # Python packages
 RUN pip3 install --no-cache-dir                                                \
+    fmpy                                                                       \
     junit_xml                                                                  \
     ompython==3.6.0                                                            \
     PyGithub                                                                   \
