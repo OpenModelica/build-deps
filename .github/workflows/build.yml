@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
