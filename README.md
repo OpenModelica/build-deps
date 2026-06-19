@@ -15,7 +15,7 @@ export FMUSIM_TOKEN=XXXXXXXXXXXXXXXXXXXXXXX
 docker build \
   --pull \
   --no-cache \
-  --secret id=fmusim_token,env=fmusim_token \
+  --secret id=fmusim_token,env=FMUSIM_TOKEN \
   --tag build-deps:$TAG .
 ```
 
