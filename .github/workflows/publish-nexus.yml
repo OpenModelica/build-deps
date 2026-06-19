@@ -46,5 +46,3 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
           push: true
-          secrets: |
-            fmusim_token=${{ secrets.FMUSIM_TOKEN }}

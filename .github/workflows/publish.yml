@@ -32,7 +32,7 @@ jobs:
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ secrets.fmusim_token }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
@@ -52,8 +52,6 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
           push: true
-          secrets: |
-            fmusim_token=${{ secrets.FMUSIM_TOKEN }}
 
       - name: Sign the images with GitHub OIDC Token (tag-based)
         env:

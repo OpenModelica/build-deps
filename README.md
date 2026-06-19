@@ -11,12 +11,7 @@ The Docker images used to build and deploy
 
 ```bash
 export TAG=v1.22.4
-export FMUSIM_TOKEN=XXXXXXXXXXXXXXXXXXXXXXX
-docker build \
-  --pull \
-  --no-cache \
-  --secret id=fmusim_token,env=FMUSIM_TOKEN \
-  --tag build-deps:$TAG .
+docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 
 ## Upload
