@@ -10,7 +10,7 @@ The Docker images used to build and deploy
 ## Build
 
 ```bash
-export TAG=v1.22.3
+export TAG=v1.22.4
 docker build --pull --no-cache --tag build-deps:$TAG .
 ```
 
