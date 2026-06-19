@@ -18,7 +18,7 @@ jobs:
 
       - name: Create or update release
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.fmusim_token }}
         run: |
           # Only mark as latest when the tag is on the default branch
           BASE_BRANCH=$(gh api repos/${{ github.repository }} --jq '.default_branch')

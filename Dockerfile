@@ -7,7 +7,7 @@ LABEL organization="OpenModelica"
 
 LABEL org.opencontainers.image.vendor="OpenModelica"
 LABEL org.opencontainers.image.authors="AnHeuermann"
-LABEL org.opencontainers.image.version="v1.22.3"
+LABEL org.opencontainers.image.version="v1.22.4"
 LABEL org.opencontainers.image.description="OpenModelica build-deps Docker Image "
 LABEL org.opencontainers.image.source="https://github.com/OpenModelica/build-deps"
 LABEL org.opencontainers.image.license="MIT"
@@ -50,8 +50,10 @@ RUN apt-get install -qy                                                        \
   aspell                                                                       \
   bibtex2html                                                                  \
   bison                                                                        \
+  build-essential                                                              \
   ccache                                                                       \
   clang-tools                                                                  \
+  cmake                                                                        \
   docker.io                                                                    \
   doxygen                                                                      \
   flex                                                                         \
@@ -61,14 +63,16 @@ RUN apt-get install -qy                                                        \
   intel-opencl-icd                                                             \
   jq                                                                           \
   latexmk                                                                      \
-  psmisc                                                                       \
   libcurl4-gnutls-dev                                                          \
   libmldbm-perl                                                                \
+  libssl-dev                                                                   \
   ocl-icd-opencl-dev                                                           \
   opencl-headers                                                               \
   pandoc                                                                       \
+  pkg-config                                                                   \
   pocl-opencl-icd                                                              \
   poppler-utils                                                                \
+  psmisc                                                                       \
   python3-pip                                                                  \
   qttools5-dev                                                                 \
   qtwebengine5-dev                                                             \
@@ -176,6 +180,29 @@ RUN pip3 install --no-cache-dir                                                \
     svgwrite                                                                   \
   && pip3 install --no-cache-dir -r                                            \
     https://raw.githubusercontent.com/OpenModelica/OpenModelica/9c0dc9a8ab50ba652109584cb3fecaef86640b66/doc/UsersGuide/source/requirements.txt
+
+# Specific versions needed for caching Rust crates
+ARG WASM_BINDGEN_VERSION="0.2.100"
+ARG RUST_NIGHTLY="nightly-2026-05-31"
+
+# Install Rust, fmusim
+RUN --mount=type=secret,id=fmusim_token                                              \
+    FMUSIM_TOKEN="$(cat /run/secrets/fmusim_token)" &&                               \
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |                      \
+      bash -s -- -y --profile minimal --default-toolchain "${RUST_NIGHTLY}"          \
+                 --target wasm32-unknown-unknown &&                                  \
+    . "$HOME/.cargo/env" &&                                                          \
+    cargo install                                                                    \
+      --git "https://${FMUSIM_TOKEN}@github.com/AnHeuermann/fmusim-rust"             \
+      --locked fmusim &&                                                             \
+    rustup component add rustc-codegen-cranelift-preview clippy rustfmt &&           \
+    cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" &&            \
+    cargo install cargo-nextest --locked &&                                          \
+    chmod -R ugo+rwx /opt/rust &&                                                    \
+    echo 'source $HOME/.cargo/env' >> "$HOME/.bashrc" &&                             \
+    echo 'source <(COMPLETE=bash fmusim)' >> "$HOME/.bashrc" &&                      \
+    rm -rf "$HOME/.cargo/registry" "$HOME/.cargo/git"                                \
+           "$HOME/.rustup/downloads" "$HOME/.rustup/tmp"
 
 # Set locale
 ENV LANGUAGE=en_US:en

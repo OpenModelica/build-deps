@@ -10,8 +10,13 @@ The Docker images used to build and deploy
 ## Build
 
 ```bash
-export TAG=v1.22.3
-docker build --pull --no-cache --tag build-deps:$TAG .
+export TAG=v1.22.4
+export FMUSIM_TOKEN=XXXXXXXXXXXXXXXXXXXXXXX
+docker build \
+  --pull \
+  --no-cache \
+  --secret id=fmusim_token,env=fmusim_token \
+  --tag build-deps:$TAG .
 ```
 
 ## Upload
