@@ -203,6 +203,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |                 
     . "$CARGO_HOME/env" &&                                                                  \
     rustup component add rustc-codegen-cranelift-preview clippy rustfmt &&                  \
     cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" &&                   \
+    cargo install sccache --locked &&                                                       \
     cargo install cargo-nextest --locked &&                                                 \
     echo 'source <(COMPLETE=bash fmusim)' >> "$HOME/.bashrc" &&                             \
     rm -rf "$CARGO_HOME/registry" "$CARGO_HOME/git"                                         \
