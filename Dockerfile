@@ -7,7 +7,7 @@ LABEL organization="OpenModelica"
 
 LABEL org.opencontainers.image.vendor="OpenModelica"
 LABEL org.opencontainers.image.authors="AnHeuermann"
-LABEL org.opencontainers.image.version="v1.22.4"
+LABEL org.opencontainers.image.version="v1.22.5"
 LABEL org.opencontainers.image.description="OpenModelica build-deps Docker Image "
 LABEL org.opencontainers.image.source="https://github.com/OpenModelica/build-deps"
 LABEL org.opencontainers.image.license="MIT"
@@ -35,18 +35,20 @@ RUN apt-get update                                                              
     "deb-src [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/openmodelica-keyring.gpg] https://build.openmodelica.org/apt  \
     $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1)                                  \
     nightly" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null                                                                 \
-  && apt-get update
+  && rm -rf /var/lib/apt/lists/*
 
 # Install Debian build deps
-RUN apt-get install -qy                                                                                                                   \
+RUN apt-get update && apt-get install -qy                                                                                                                   \
     wget                                                                                                                                  \
     devscripts                                                                                                                            \
     equivs                                                                                                                                \
   && wget https://raw.githubusercontent.com/OpenModelica/OpenModelicaBuildScripts/37b564c1674023a5afb7517e408ffd9bd174a59c/debian/control \
-  && mk-build-deps --install -t 'apt-get --force-yes -y' control
+  && mk-build-deps --install -t 'apt-get --force-yes -y' control \
+  && rm control *.deb /openmodelica-build-deps_1.0_amd64.buildinfo /openmodelica-build-deps_1.0_amd64.changes \
+  && rm -rf /var/lib/apt/lists/*
 
 # Install additional dependencies, e.g. to build the User's Guide
-RUN apt-get install -qy                                                        \
+RUN apt-get update && apt-get install -qy                                                        \
   aspell                                                                       \
   bibtex2html                                                                  \
   bison                                                                        \
@@ -84,10 +86,11 @@ RUN apt-get install -qy                                                        \
   unzip                                                                        \
   xsltproc                                                                     \
   xvfb                                                                         \
-  zip
+  zip                                                                          \
+  && rm -rf /var/lib/apt/lists/*
 
 # Qt6 tools
-RUN apt-get install -qy                                                        \
+RUN apt-get update && apt-get install -qy                                      \
   libqt6concurrent6                                                            \
   libqt6core5compat6                                                           \
   libqt6core5compat6-dev                                                       \
@@ -168,7 +171,8 @@ RUN apt-get install -qy                                                        \
   qt6-webengine-dev                                                            \
   qt6-webengine-dev-tools                                                      \
   qt6-webview-dev                                                              \
-  qt6-webview-plugins
+  qt6-webview-plugins                                                          \
+  && rm -rf /var/lib/apt/lists/*
 
 # Python packages
 RUN pip3 install --no-cache-dir                                                \
@@ -188,27 +192,26 @@ COPY fmusim-v0.1.0-linux-x86_64/fmusim /usr/local/bin/fmusim
 ARG WASM_BINDGEN_VERSION="0.2.100"
 ARG RUST_NIGHTLY="nightly-2026-05-31"
 
+ENV RUSTUP_HOME=/opt/rust/rustup \
+    CARGO_HOME=/opt/rust/cargo \
+    PATH=/opt/rust/cargo/bin:$PATH
+
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |                             \
       bash -s -- -y --profile minimal --default-toolchain "${RUST_NIGHTLY}"                 \
                  --target wasm32-unknown-unknown &&                                         \
-    . "$HOME/.cargo/env" &&                                                                 \
+    . "$CARGO_HOME/env" &&                                                                  \
     rustup component add rustc-codegen-cranelift-preview clippy rustfmt &&                  \
     cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" &&                   \
     cargo install cargo-nextest --locked &&                                                 \
-    echo 'source $HOME/.cargo/env' >> "$HOME/.bashrc" &&                                    \
     echo 'source <(COMPLETE=bash fmusim)' >> "$HOME/.bashrc" &&                             \
-    rm -rf "$HOME/.cargo/registry" "$HOME/.cargo/git"                                       \
-           "$HOME/.rustup/downloads" "$HOME/.rustup/tmp"
+    rm -rf "$CARGO_HOME/registry" "$CARGO_HOME/git"                                         \
+           "$CARGO_HOME/.package-cache"                                                     \
+           "$HOME/.rustup/downloads" "$HOME/.rustup/tmp"                                    \
+           "${CARGO_TARGET_DIR:-/nonexistent}"
 
 # Set locale
-ENV LANGUAGE=en_US:en
-ENV LANG=C.UTF-8
-ENV LC_ALL=C.UTF-8
-RUN apt-get install -qy locales
-
-# Clean
-RUN rm -rf /var/lib/apt/lists/* \
-  && apt-get clean \
-  && rm -f control *.deb \
-  && rm /openmodelica-build-deps_1.0_amd64.buildinfo /openmodelica-build-deps_1.0_amd64.changes
+ENV LANGUAGE=en_US:en \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
+RUN apt-get update &&apt-get install -qy locales && rm -rf /var/lib/apt/lists/*
