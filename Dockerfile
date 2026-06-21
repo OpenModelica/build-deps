@@ -215,4 +215,4 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |                 
 ENV LANGUAGE=en_US:en \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
-RUN apt-get update &&apt-get install -qy locales && rm -rf /var/lib/apt/lists/*
+RUN apt-get update &&apt-get install -qy locales mold && rm -rf /var/lib/apt/lists/*
