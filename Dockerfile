@@ -215,4 +215,12 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |                 
 ENV LANGUAGE=en_US:en \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
-RUN apt-get update &&apt-get install -qy locales mold && rm -rf /var/lib/apt/lists/*
+RUN apt-get update &&apt-get install -qy locales && rm -rf /var/lib/apt/lists/*
+
+# The rust omc launcher links with --export-dynamic-symbol, which mold gained in
+# 1.7; this image's Ubuntu base ships mold 1.0.3. Replace it with a pinned
+# upstream release so `cc -fuse-ld=mold` (RUST_OMC_MOLD in rust_omc.cmake) resolves the new one. Bump MOLD_VERSION to update.
+ARG MOLD_VERSION=2.40.0
+RUN curl -fsSL https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-x86_64-linux.tar.gz \
+    | tar -xz -C /usr/local --strip-components=1 \
+ && ld.mold --version
