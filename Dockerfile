@@ -189,7 +189,7 @@ RUN pip3 install --no-cache-dir                                                \
 COPY fmusim-v0.1.0-linux-x86_64/fmusim /usr/local/bin/fmusim
 
 # Specific versions needed for caching Rust crates
-ARG WASM_BINDGEN_VERSION="0.2.100"
+ARG WASM_BINDGEN_VERSION="0.2.125"
 ARG RUST_NIGHTLY="nightly-2026-05-31"
 
 ENV RUSTUP_HOME=/opt/rust/rustup \
