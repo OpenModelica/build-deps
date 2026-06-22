@@ -205,11 +205,11 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs |                 
     cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" &&                   \
     cargo install sccache --locked &&                                                       \
     cargo install cargo-nextest --locked &&                                                 \
-    echo 'source <(COMPLETE=bash fmusim)' >> "$HOME/.bashrc" &&                             \
     rm -rf "$CARGO_HOME/registry" "$CARGO_HOME/git"                                         \
            "$CARGO_HOME/.package-cache"                                                     \
            "$HOME/.rustup/downloads" "$HOME/.rustup/tmp"                                    \
-           "${CARGO_TARGET_DIR:-/nonexistent}"
+           "${CARGO_TARGET_DIR:-/nonexistent}" &&                                           \
+    mkdir -p "$CARGO_HOME/registry" && chmod ugo+rwx -R /opt/rust
 
 # Set locale
 ENV LANGUAGE=en_US:en \
@@ -224,3 +224,8 @@ ARG MOLD_VERSION=2.40.0
 RUN curl -fsSL https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-x86_64-linux.tar.gz \
     | tar -xz -C /usr/local --strip-components=1 \
  && ld.mold --version
+
+# World-writable caches (the building uid is unknown), as in ../Dockerfile.
+# /cache/sccache is the sccache volume (RUSTC_WRAPPER) shared across CI builds;
+# the chmod is inherited by the named volume on first mount.
+RUN mkdir -p /cache/runtest/ /cache/omlibrary/ /cache/sccache/ && chmod ugo+rwx /cache/runtest/ /cache/omlibrary/ /cache/sccache/
