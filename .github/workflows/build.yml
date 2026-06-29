@@ -61,25 +61,29 @@ jobs:
 
       - name: Compute publish matrix
         id: publish_tags
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+          GH_REF: ${{ github.ref }}
+          GH_REF_NAME: ${{ github.ref_name }}
         run: |
-          case "${{ github.event_name }}" in
+          case "${EVENT_NAME}" in
             schedule)
               DATE=$(date +%Y.%m.%d)
               echo "matrix=$(python3 .ci/matrix.py publish-matrix "${DATE}")" >> "$GITHUB_OUTPUT"
               ;;
             workflow_dispatch)
-              INPUT="${{ github.event.inputs.tag }}"
-              if [[ "${INPUT}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                echo "matrix=$(python3 .ci/matrix.py publish-matrix "${INPUT#v}")" >> "$GITHUB_OUTPUT"
+              if [[ "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "matrix=$(python3 .ci/matrix.py publish-matrix "${INPUT_TAG#v}")" >> "$GITHUB_OUTPUT"
               else
-                echo "matrix=[{\"tag\":\"${INPUT}\"}]" >> "$GITHUB_OUTPUT"
+                python3 .ci/matrix.py image "${INPUT_TAG}" > /dev/null
+                echo "matrix=$(python3 -c "import json,sys; print(json.dumps([{'tag':sys.argv[1]}],separators=(',',':')))" "${INPUT_TAG}")" >> "$GITHUB_OUTPUT"
               fi
               ;;
             push)
-              if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-                SEMVER="${{ github.ref_name }}"
-                echo "matrix=$(python3 .ci/matrix.py publish-matrix "${SEMVER#v}")" >> "$GITHUB_OUTPUT"
-              elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
+              if [[ "${GH_REF}" == refs/tags/v* ]]; then
+                echo "matrix=$(python3 .ci/matrix.py publish-matrix "${GH_REF_NAME#v}")" >> "$GITHUB_OUTPUT"
+              elif [[ "${GH_REF}" == refs/heads/main ]]; then
                 echo "matrix=$(python3 .ci/matrix.py publish-matrix main)" >> "$GITHUB_OUTPUT"
               else
                 echo 'matrix=[]' >> "$GITHUB_OUTPUT"
@@ -165,8 +169,7 @@ jobs:
             { echo "error: tag must be of the form v<semver> (e.g. v2.1.0)"; exit 1; }
           if gh release view "${GITHUB_REF_NAME}" &>/dev/null; then
             gh release edit "${GITHUB_REF_NAME}" \
-              --title "${GITHUB_REF_NAME}" \
-              --generate-notes
+              --title "${GITHUB_REF_NAME}"
           else
             gh release create "${GITHUB_REF_NAME}" \
               --title "${GITHUB_REF_NAME}" \
@@ -265,6 +268,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
+
+      - name: Install dependencies
+        run: pip install -r .ci/requirements.txt
 
       - name: Login to Nexus Docker registry
         uses: docker/login-action@v4.2.0

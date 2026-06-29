@@ -128,7 +128,7 @@ discover ─▶ build (all images, no push)
 
 - **build** — on every push/PR to `main` (and as the gate before release),
   builds every base + add-on declared in `.ci/matrix.yml` (no push).
-- **release** — on an image release tag, creates/updates the GitHub Release.
+- **release** — on an repo-wide release tag, creates/updates the GitHub Release.
 - **publish-ghcr / publish-nexus** — build, push (and on GHCR **sign**) the
   tagged image (base + add-ons) to GHCR and Nexus. Triggered by a release tag,
   a push to `main` (tags ending in `-main`), the weekly schedule, or

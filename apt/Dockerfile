@@ -50,7 +50,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   apt-get update \
   && apt-get upgrade -qy \
   && apt-get dist-upgrade -qy \
-  && apt-get install -qy \
+  && apt-get install -qy --no-install-recommends \
     ca-certificates \
     curl \
     gnupg \
@@ -74,7 +74,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 # base image), so the relocated /opt/venv works there unchanged.
 FROM base AS venv
 RUN apt-get update \
-  && apt-get install -qy python3-pip python3-venv \
+  && apt-get install -qy --no-install-recommends python3-pip python3-venv \
   && rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
@@ -293,7 +293,7 @@ FROM full AS rust
 LABEL org.opencontainers.image.description="OpenModelica build-deps (Ubuntu) for the Rust targets"
 
 ENV EMSDK=/opt/emsdk \
-  QT_HOST_PATH=/opt/Qt/6.10.2/gcc_64 \
+  QT_HOST_PATH=/opt/Qt/6.10.2/linux_gcc_64 \
   RUSTUP_HOME=/opt/rust/rustup \
   CARGO_HOME=/opt/rust/cargo \
   XWIN_CACHE_DIR=/opt/cargo-xwin \
