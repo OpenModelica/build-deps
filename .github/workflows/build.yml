@@ -6,16 +6,20 @@ name: Build, Release & Publish
 #   discover ─▶ build (all images, no push)
 #                 └─▶ release (tag only) ─▶ publish-ghcr + publish-nexus
 #
-# Release/publish are keyed on image tags: <os>-<version>-<semver>,
-# e.g. ubuntu-24.04-2.1.0.
+# A single repo-wide semver tag (e.g. v2.1.0) releases ALL images at once.
+# The per-image Docker tags (e.g. ubuntu-24.04-2.1.0) are synthesized from it.
 #
 # Triggers:
 #   schedule        Weekly rolling rebuild (Sunday night → Monday 03:30 UTC).
 #                   Publishes every image with a date-based immutable tag
 #                   (YYYY.MM.DD) in addition to the moving tag, without creating
 #                   a GitHub Release.
-#   push tag        Full release: GitHub Release + immutable semver tag.
-#   workflow_dispatch Re-publish a single image tag on demand.
+#   push tag        Full release: GitHub Release + immutable semver tags for
+#                   all images. Tag must be of the form v<MAJOR>.<MINOR>.<PATCH>.
+#   push main       Publishes every image with a moving `-main` tag.
+#   workflow_dispatch Re-publish on demand: global tag (e.g. v2.1.0) rebuilds
+#                   all images; a single image tag (e.g. ubuntu-24.04-2.1.0)
+#                   rebuilds just that image.
 
 on:
   schedule:
@@ -24,14 +28,14 @@ on:
     branches:
       - main
     tags:
-      - '*-*.*.*'
+      - 'v[0-9]*.[0-9]*.[0-9]*'
   pull_request:
     branches:
       - main
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Image tag to (re)publish (e.g. ubuntu-24.04-2.1.0)'
+        description: 'Version to (re)publish: global tag (e.g. v2.1.0) rebuilds all images; single image tag (e.g. ubuntu-24.04-2.1.0) rebuilds one'
         required: true
 
 permissions:
@@ -64,11 +68,17 @@ jobs:
               echo "matrix=$(python3 .ci/matrix.py publish-matrix "${DATE}")" >> "$GITHUB_OUTPUT"
               ;;
             workflow_dispatch)
-              echo 'matrix=[{"tag":"${{ github.event.inputs.tag }}"}]' >> "$GITHUB_OUTPUT"
+              INPUT="${{ github.event.inputs.tag }}"
+              if [[ "${INPUT}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "matrix=$(python3 .ci/matrix.py publish-matrix "${INPUT#v}")" >> "$GITHUB_OUTPUT"
+              else
+                echo "matrix=[{\"tag\":\"${INPUT}\"}]" >> "$GITHUB_OUTPUT"
+              fi
               ;;
             push)
-              if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-                echo 'matrix=[{"tag":"${{ github.ref_name }}"}]' >> "$GITHUB_OUTPUT"
+              if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+                SEMVER="${{ github.ref_name }}"
+                echo "matrix=$(python3 .ci/matrix.py publish-matrix "${SEMVER#v}")" >> "$GITHUB_OUTPUT"
               elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
                 echo "matrix=$(python3 .ci/matrix.py publish-matrix main)" >> "$GITHUB_OUTPUT"
               else
@@ -138,7 +148,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: build
-    if: ${{ startsWith(github.ref, 'refs/tags/') }}
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -146,28 +156,22 @@ jobs:
       - name: Check out the repo
         uses: actions/checkout@v7
 
-      - name: Install dependencies
-        run: pip install -r .ci/requirements.txt
-
       - name: Create or update release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Validate tag
-          python .ci/matrix.py image "${GITHUB_REF_NAME}" >/dev/null
-          # Per-image releases are never marked as the repository "latest":
-          # there is no single newest image in the monorepo.
+          # Validate tag format: must be v<MAJOR>.<MINOR>.<PATCH>
+          echo "${GITHUB_REF_NAME}" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$' || \
+            { echo "error: tag must be of the form v<semver> (e.g. v2.1.0)"; exit 1; }
           if gh release view "${GITHUB_REF_NAME}" &>/dev/null; then
             gh release edit "${GITHUB_REF_NAME}" \
               --title "${GITHUB_REF_NAME}" \
-              --generate-notes \
-              --latest=false
+              --generate-notes
           else
             gh release create "${GITHUB_REF_NAME}" \
               --title "${GITHUB_REF_NAME}" \
               --generate-notes \
-              --verify-tag \
-              --latest=false
+              --verify-tag
           fi
 
   publish-ghcr:

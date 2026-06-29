@@ -56,17 +56,18 @@ matrix entry).
 One image repository per registry; OS, version and variant are encoded in the
 **tag**:
 
-| Tag                           | Mutable?  | Meaning                                    |
-| ----------------------------- | --------- | ------------------------------------------ |
-| `ubuntu-24.04`                | moving    | Latest base image for Ubuntu 24.04         |
-| `ubuntu-24.04-2.1.0`          | immutable | Pinned base, `2.1.0` = this repo's semver  |
-| `ubuntu-24.04-cmake-4`        | moving    | Latest CMake 4 add-on on the 24.04 base    |
-| `ubuntu-24.04-cmake-4-2.1.0`  | immutable | Pinned add-on                              |
-| `ubuntu-24.04-main`           | moving    | Latest build from the `main` branch        |
+| Tag                           | Mutable?  | Meaning                                                  |
+| ----------------------------- | --------- | -------------------------------------------------------- |
+| `ubuntu-24.04`                | moving    | Latest base image for Ubuntu 24.04                       |
+| `ubuntu-24.04-2.1.0`          | immutable | Pinned base, synthesized from git tag `v2.1.0`           |
+| `ubuntu-24.04-cmake-4`        | moving    | Latest CMake 4 add-on on the 24.04 base                  |
+| `ubuntu-24.04-cmake-4-2.1.0`  | immutable | Pinned add-on, synthesized from git tag `v2.1.0`         |
+| `ubuntu-24.04-main`           | moving    | Latest build from the `main` branch                      |
 
-The repo's own semver (`MAJOR.MINOR.PATCH`) versions the **recipe**, not
-OpenModelica. Day-to-day CI uses the **moving** tag; when an OpenModelica
-release needs a frozen environment it pins the **immutable** tag.
+Releasing is done by pushing a single repo-wide git tag `v<MAJOR>.<MINOR>.<PATCH>`
+(e.g. `v2.1.0`). CI synthesizes the per-image immutable Docker tags from it and
+publishes all images in one run. Day-to-day CI uses the **moving** tag; when an
+OpenModelica release needs a frozen environment it pins the **immutable** tag.
 
 ### Currently provided images
 

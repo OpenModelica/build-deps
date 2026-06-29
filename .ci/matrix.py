@@ -19,16 +19,17 @@ and answers questions for the GitHub Actions workflows:
         looped over in shell directly.
 
     matrix.py image <tag>
-        Resolve a release tag such as ``ubuntu-24.04-2.1.0`` to the image it
-        refers to and print shell ``key='value'`` assignments to stdout::
+        Resolve a per-image tag such as ``ubuntu-24.04-2.1.0`` (synthesized
+        from the global ``v2.1.0`` release tag by ``publish-matrix``) to the
+        image it refers to and print shell ``key='value'`` assignments::
 
             dir='ubuntu/24.04'
             base_tag='ubuntu-24.04'
             semver='2.1.0'
-            context='ubuntu'
-            dockerfile='ubuntu/Dockerfile'
+            context='apt'
+            dockerfile='apt/Dockerfile'
             target='full'
-            build_args='UBUNTU_VERSION=24.04'
+            build_args='DISTRO=ubuntu VERSION=24.04'
             addons='cmake-4'
 
         Intended to be consumed with ``eval "$(python .ci/matrix.py image …)"``.
