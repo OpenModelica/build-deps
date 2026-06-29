@@ -54,7 +54,7 @@ import yaml
 HERE = os.path.dirname(os.path.abspath(__file__))
 MATRIX_FILE = os.path.join(HERE, "matrix.yml")
 
-SEMVER_RE = re.compile(r"^(?P<prefix>.+)-(?P<semver>\d+\.\d+\.\d+)$")
+SEMVER_RE = re.compile(r"^(?P<prefix>.+)-(?P<semver>\d+\.\d+\.\d+|[a-z][a-z0-9-]*)$")
 
 
 def load_images():
@@ -104,7 +104,7 @@ def cmd_image(tag: str):
     if not match:
         sys.exit(
             f"error: tag '{tag}' is not of the form <os>-<version>-<semver> "
-            f"(e.g. ubuntu-24.04-2.1.0)"
+            f"(e.g. ubuntu-24.04-2.1.0 or ubuntu-24.04-main)"
         )
     prefix = match.group("prefix")
     semver = match.group("semver")

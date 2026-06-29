@@ -38,6 +38,8 @@ images:
       UBUNTU_VERSION: "26.04"
     addons:
       - rust
+      - cmake-4
+      - debug
 
   - os: ubuntu
     version: "24.04"
@@ -47,7 +49,7 @@ images:
     build_args:
       UBUNTU_VERSION: "24.04"
     addons:
-      - cmake-4
+      - debug
 
   - os: ubuntu
     version: "22.04"
@@ -56,7 +58,8 @@ images:
     target: full
     build_args:
       UBUNTU_VERSION: "22.04"
-    addons: []
+    addons:
+      - debug
 
   # Placeholders — not implemented yet (see <os>/Dockerfile). Each OS uses the
   # same single multi-stage Dockerfile layout as Ubuntu. Uncomment and flesh out

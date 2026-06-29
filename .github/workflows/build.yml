@@ -10,7 +10,7 @@ name: Build, Release & Publish
 # e.g. ubuntu-24.04-2.1.0.
 #
 # Triggers:
-#   schedule        Weekly rolling rebuild (Sunday night → Monday 00:00 UTC).
+#   schedule        Weekly rolling rebuild (Sunday night → Monday 03:30 UTC).
 #                   Publishes every image with a date-based immutable tag
 #                   (YYYY.MM.DD) in addition to the moving tag, without creating
 #                   a GitHub Release.
@@ -19,7 +19,7 @@ name: Build, Release & Publish
 
 on:
   schedule:
-    - cron: '0 0 * * 1'   # Monday 00:00 UTC — Sunday-night rolling rebuild
+    - cron: '30 3 * * 1'   # Monday 03:30 UTC — Sunday-night rolling rebuild
   push:
     branches:
       - main
@@ -69,6 +69,8 @@ jobs:
             push)
               if [[ "${{ github.ref }}" == refs/tags/* ]]; then
                 echo 'matrix=[{"tag":"${{ github.ref_name }}"}]' >> "$GITHUB_OUTPUT"
+              elif [[ "${{ github.ref }}" == refs/heads/main ]]; then
+                echo "matrix=$(python3 .ci/matrix.py publish-matrix main)" >> "$GITHUB_OUTPUT"
               else
                 echo 'matrix=[]' >> "$GITHUB_OUTPUT"
               fi
