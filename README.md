@@ -19,21 +19,17 @@ than by OpenModelica version. Each image is a **base** plus optional, layered
 
 ```text
 main
-├── ubuntu/
-│   └── Dockerfile          # multi-stage: ALL Ubuntu versions + add-ons
-├── debian/Dockerfile       # placeholder (not implemented yet)
-├── almalinux/Dockerfile    # placeholder (not implemented yet)
-├── arch/Dockerfile         # placeholder (not implemented yet)
+├── apt/
+│   └── Dockerfile          # multi-stage: all Ubuntu + Debian versions + add-ons
+├── rpm/
+│   └── Dockerfile          # planned: Fedora, AlmaLinux, Rocky Linux, RHEL
+├── pacman/
+│   └── Dockerfile          # placeholder (not implemented yet)
 └── .ci/
     ├── matrix.yml          # source of truth: which images exist
     ├── matrix.py           # matrix.yml -> CI matrix / tag lookup
     └── publish.sh          # build + push one image (base + add-ons)
 ```
-
-> **Status:** only the **Ubuntu** images are implemented. Debian, AlmaLinux and
-> Arch are empty placeholders (an `<os>/Dockerfile` with a TODO header) and are
-> intentionally left out of [.ci/matrix.yml][matrix-yml] until implemented,
-> so CI does not try to build them.
 
 - **Base image** — one per OS/OS-version. Contains everything needed to build
   OpenModelica (distro packages + common tooling: TeX, Qt, Python venv,
@@ -43,19 +39,15 @@ main
   build **stage** (`FROM` the base stage) in the same Dockerfile, so shared
   layers are reused from cache.
 
-Every OS uses a single **multi-stage** Dockerfile at `<os>/Dockerfile` covering
-all of its versions (the Debian/AlmaLinux/Arch placeholders follow this too).
-All Ubuntu versions build from [ubuntu/Dockerfile][ubuntu-dockerfile]:
-
-- the FROM tag is set by the `UBUNTU_VERSION` build-arg, and the Qt package set
-  is picked from the image's `VERSION_ID` at build time;
-- the base image is the `full` stage (`--target full`);
-- each add-on is a further stage (e.g. `--target cmake-4`).
+Ubuntu and Debian share [apt/Dockerfile][apt-dockerfile]. The `DISTRO` and
+`VERSION` build-args select the base image; the Qt package set is picked from
+`${ID}:${VERSION_ID}` at build time. The base image is the `full` stage; each
+add-on is a further stage (e.g. `--target cmake-4`).
 
 Each image's `context`, `dockerfile`, `target`, `build_args` and `addons`
 (add-on stage names) are declared in [.ci/matrix.yml][matrix-yml].
 
-To add a new image, create or extend the OS's `<os>/Dockerfile` and list it in
+To add a new image, create or extend the OS's Dockerfile and list it in
 [.ci/matrix.yml][matrix-yml] (a new version of an existing OS needs only a
 matrix entry).
 
@@ -64,13 +56,13 @@ matrix entry).
 One image repository per registry; OS, version and variant are encoded in the
 **tag**:
 
-| Tag | Mutable? | Meaning |
-| --- | --- | --- |
-| `ubuntu-24.04` | moving | Latest base image for Ubuntu 24.04 |
-| `ubuntu-24.04-2.1.0` | immutable | Pinned base, `2.1.0` = this repo's semver |
-| `ubuntu-24.04-cmake-4` | moving | Latest CMake 4 add-on on the 24.04 base |
-| `ubuntu-24.04-cmake-4-2.1.0` | immutable | Pinned add-on |
-| `arch-rolling-2026.06.01` | immutable | Date-stamped snapshot for the rolling distro |
+| Tag                           | Mutable?  | Meaning                                    |
+| ----------------------------- | --------- | ------------------------------------------ |
+| `ubuntu-24.04`                | moving    | Latest base image for Ubuntu 24.04         |
+| `ubuntu-24.04-2.1.0`          | immutable | Pinned base, `2.1.0` = this repo's semver  |
+| `ubuntu-24.04-cmake-4`        | moving    | Latest CMake 4 add-on on the 24.04 base    |
+| `ubuntu-24.04-cmake-4-2.1.0`  | immutable | Pinned add-on                              |
+| `ubuntu-24.04-main`           | moving    | Latest build from the `main` branch        |
 
 The repo's own semver (`MAJOR.MINOR.PATCH`) versions the **recipe**, not
 OpenModelica. Day-to-day CI uses the **moving** tag; when an OpenModelica
@@ -78,31 +70,34 @@ release needs a frozen environment it pins the **immutable** tag.
 
 ### Currently provided images
 
-| OS / version | Base tag | Add-ons | Status | Source |
-| --- | --- | --- | --- | --- |
-| Ubuntu 26.04 | `ubuntu-26.04` | – | implemented | [ubuntu/Dockerfile][ubuntu-dockerfile] |
-| Ubuntu 24.04 (Noble) | `ubuntu-24.04` | `cmake-4` | implemented | [ubuntu/Dockerfile][ubuntu-dockerfile] |
-| Ubuntu 22.04 (Jammy) | `ubuntu-22.04` | – | implemented | [ubuntu/Dockerfile][ubuntu-dockerfile] |
-| Debian 13 (Trixie) | `debian-13` | – | placeholder | [debian/Dockerfile][debian-dockerfile] |
-| AlmaLinux 9 | `almalinux-9` | – | placeholder | [almalinux/Dockerfile][almalinux-dockerfile] |
-| Arch Linux (rolling) | `arch-rolling` | – | placeholder | [arch/Dockerfile][arch-dockerfile] |
-| openSUSE Leap 16.0 | `opensuse-leap-16.0` | – | placeholder | [opensuse-leap/Dockerfile][opensuse-leap-dockerfile] |
+| OS / version             | Base tag               | Add-ons                    | Dockerfile           | Status      |
+| ------------------------ | ---------------------- | -------------------------- | -------------------- | ----------- |
+| Ubuntu 26.04 (Resolute)  | `ubuntu-26.04`         | `rust`, `cmake-4`, `debug` | `apt/Dockerfile`     | implemented |
+| Ubuntu 24.04 (Noble)     | `ubuntu-24.04`         | `cmake-4`, `debug`         | `apt/Dockerfile`     | implemented |
+| Ubuntu 22.04 (Jammy)     | `ubuntu-22.04`         | `debug`                    | `apt/Dockerfile`     | implemented |
+| Debian 13 (Trixie)       | `debian-13`            | `cmake-4`, `debug`         | `apt/Dockerfile`     | implemented |
+| Debian 12 (Bookworm)     | `debian-12`            | `cmake-4`, `debug`         | `apt/Dockerfile`     | implemented |
+| Fedora, AlmaLinux, RHEL  | `<os>-<ver>`           | –                          | `rpm/Dockerfile`     | planned     |
+| Arch Linux (rolling)     | `arch-rolling`         | –                          | `pacman/Dockerfile`  | placeholder |
 
 ## Build locally
 
-**Base image** — for Ubuntu, pick the version with `UBUNTU_VERSION` and build
-the `full` stage:
+**Base image** — pick the distro and version with `DISTRO` and `VERSION`:
 
 ```bash
+# Ubuntu
 docker build --pull --no-cache \
   --target full \
-  --build-arg UBUNTU_VERSION=24.04 \
+  --build-arg DISTRO=ubuntu --build-arg VERSION=24.04 \
   --tag build-deps:ubuntu-24.04 \
-  ubuntu
+  apt
 
-# Debian/AlmaLinux/Arch follow the same pattern once implemented, e.g.:
-#   docker build --pull --target full --build-arg DEBIAN_VERSION=13 \
-#     --tag build-deps:debian-13 debian
+# Debian
+docker build --pull --no-cache \
+  --target full \
+  --build-arg DISTRO=debian --build-arg VERSION=13 --build-arg INTEL_OCL_PKGS= \
+  --tag build-deps:debian-13 \
+  apt
 ```
 
 **Add-on image** — build the add-on's stage with `--target`. It reuses the
@@ -111,9 +106,9 @@ base's cached layers, so it only adds the extra step:
 ```bash
 docker build --pull \
   --target cmake-4 \
-  --build-arg UBUNTU_VERSION=24.04 \
+  --build-arg DISTRO=ubuntu --build-arg VERSION=24.04 \
   --tag build-deps:ubuntu-24.04-cmake-4 \
-  ubuntu
+  apt
 ```
 
 > The values to pass (`context`, `--file`, `--target`, `--build-arg`) for any
@@ -134,8 +129,9 @@ discover ─▶ build (all images, no push)
   builds every base + add-on declared in `.ci/matrix.yml` (no push).
 - **release** — on an image release tag, creates/updates the GitHub Release.
 - **publish-ghcr / publish-nexus** — build, push (and on GHCR **sign**) the
-  tagged image (base + add-ons) to GHCR and Nexus. Also runnable via
-  `workflow_dispatch` with a `tag` input to re-publish without a new tag.
+  tagged image (base + add-ons) to GHCR and Nexus. Triggered by a release tag,
+  a push to `main` (tags ending in `-main`), the weekly schedule, or
+  `workflow_dispatch` with a `tag` input to re-publish on demand.
 
 ## Releasing a new image version
 
@@ -152,11 +148,7 @@ See [LICENSE.md][license-md].
 [openmodelica]: https://github.com/OpenModelica/OpenModelica
 [jenkins]: https://test.openmodelica.org/jenkins/
 [matrix-yml]: ./.ci/matrix.yml
-[ubuntu-dockerfile]: ./ubuntu/Dockerfile
-[debian-dockerfile]: ./debian/Dockerfile
-[almalinux-dockerfile]: ./almalinux/Dockerfile
-[arch-dockerfile]: ./arch/Dockerfile
-[opensuse-leap-dockerfile]: ./opensuse-leap/Dockerfile
+[apt-dockerfile]: ./apt/Dockerfile
 [workflow-build-file]: ./.github/workflows/build.yml
 [releasing-md]: ./RELEASING.md
 [build-scripts]: https://github.com/OpenModelica/OpenModelicaBuildScripts

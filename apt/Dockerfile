@@ -1,33 +1,34 @@
-# Multi-stage, shared image for all supported Ubuntu versions.
+# Multi-stage, shared image for Ubuntu and Debian.
 #
-# The FROM tag is the only per-version difference besides a handful of Qt
-# packages, so every Ubuntu image (and its add-ons) builds from this one file.
+# A single Dockerfile covers all supported Ubuntu and Debian versions.
+# DISTRO and VERSION are the only per-image differences, plus a handful of
+# version-specific Qt packages selected at build time.
 #
 # Stages / build targets:
 #   base     OpenModelica build dependencies only (apt build-dep openmodelica)
-#   python   Python virtualenv at /opt/venv, built in isolation and copied later
+#   venv     Python virtualenv at /opt/venv, built in isolation and copied later
 #   full     the published BASE image: base + User's Guide toolchain + Qt + python
 #   cmake-4  ADD-ON: full + CMake 4 from the official Kitware release
 #   debug    ADD-ON: full + GDB, Valgrind, and other debugging tools
+#   rust     ADD-ON: full + Rust toolchain + Emscripten + Qt for Wasm (Ubuntu only)
 #
 # Build the base image (the `full` target):
-#   docker build --target full --build-arg UBUNTU_VERSION=26.04 \
-#     --tag build-deps:ubuntu-26.04 ubuntu
+#   docker build --target full --build-arg DISTRO=ubuntu --build-arg VERSION=26.04 \
+#     --tag build-deps:ubuntu-26.04 apt
+#   docker build --target full --build-arg DISTRO=debian --build-arg VERSION=13 \
+#     --tag build-deps:debian-13 apt
 #
 # Build the CMake 4 add-on image (the `cmake-4` target):
-#   docker build --target cmake-4 --build-arg UBUNTU_VERSION=26.04 \
-#     --tag build-deps:ubuntu-26.04-cmake-4 ubuntu
+#   docker build --target cmake-4 --build-arg DISTRO=ubuntu --build-arg VERSION=26.04 \
+#     --tag build-deps:ubuntu-26.04-cmake-4 apt
 #
-# Build the debug add-on image (the `debug` target):
-#   docker build --target debug --build-arg UBUNTU_VERSION=26.04 \
-#     --tag build-deps:ubuntu-26.04-debug ubuntu
-#
-# CI passes UBUNTU_VERSION and the --target per image from .ci/matrix.yml.
+# CI passes DISTRO, VERSION and the --target per image from .ci/matrix.yml.
 
-ARG UBUNTU_VERSION=26.04
+ARG DISTRO=ubuntu
+ARG VERSION=26.04
 
 # ── base: OpenModelica build dependencies only ────────────────────────────────
-FROM ubuntu:${UBUNTU_VERSION} AS base
+FROM ${DISTRO}:${VERSION} AS base
 
 # Image / OCI metadata (inherited by the stages built FROM this one)
 LABEL maintainer="AnHeuermann" \
@@ -36,7 +37,7 @@ LABEL maintainer="AnHeuermann" \
 
 LABEL org.opencontainers.image.vendor="OpenModelica" \
       org.opencontainers.image.authors="AnHeuermann" \
-      org.opencontainers.image.description="OpenModelica build-deps base image (Ubuntu)" \
+      org.opencontainers.image.description="OpenModelica build-deps base image" \
       org.opencontainers.image.source="https://github.com/OpenModelica/build-deps" \
       org.opencontainers.image.license="MIT"
 
@@ -45,10 +46,8 @@ ENV SHELL=/bin/bash \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
 
-# Ensure DEBIAN_FRONTEND is only set during build
-ARG DEBIAN_FRONTEND=noninteractive
-
-RUN apt-get update \
+RUN export DEBIAN_FRONTEND=noninteractive && \
+  apt-get update \
   && apt-get upgrade -qy \
   && apt-get dist-upgrade -qy \
   && apt-get install -qy \
@@ -72,7 +71,7 @@ RUN apt-get update \
 
 # ── venv: Python tooling, isolated so it caches independently ─────────────────
 # Built once and copied into `full`. Uses the same python3 as `full` (same
-# Ubuntu base), so the relocated /opt/venv works there unchanged.
+# base image), so the relocated /opt/venv works there unchanged.
 FROM base AS venv
 RUN apt-get update \
   && apt-get install -qy python3-pip python3-venv \
@@ -91,8 +90,8 @@ RUN pip install --no-cache-dir \
   && pip install --no-cache-dir -r \
     https://raw.githubusercontent.com/OpenModelica/OpenModelica/9c0dc9a8ab50ba652109584cb3fecaef86640b66/doc/UsersGuide/source/requirements.txt
 
-# ── rustdeps: Dependencies for the Rust build ─────────────────
-# Built once and copied into `rust`.
+# ── rustdeps: Dependencies for the Rust build (Ubuntu only) ───────────────────
+# Built once and copied into `rust`. Not used for Debian images.
 FROM base AS rustdeps
 RUN apt-get update \
   && apt-get install --no-install-recommends -qy python3-pip python3-venv curl \
@@ -149,16 +148,21 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
          /opt/Qt/6.10.2/wasm_singlethread/bin/qt-configure-module
 
 # ── full: the published base image ────────────────────────────────────────────
-#   - tools to build the User's Guide (common to all Ubuntu versions)
-#   - Qt5/Qt6 packages (version-specific: Jammy ships an older Qt6 that lacks
-#     some packages available on 24.04+, so the set is chosen from VERSION_ID)
+#   - tools to build the User's Guide (common to all versions)
+#   - Qt5/Qt6 packages selected by distro and version:
+#       ubuntu:22.04  older Qt6 (Jammy), lacks some packages added in 24.04+
+#       debian:12     Bookworm Qt6, lacks qt6-httpserver-dev (added in Trixie)
+#       *             Ubuntu 24.04+ and Debian 13+
 FROM base AS full
-ARG DEBIAN_FRONTEND=noninteractive
 
 # Package lists as build-args, so they are easy to read and to override:
-#   - COMMON_PKGS      : tools common to all Ubuntu versions (User's Guide, …)
-#   - QT_PKGS_22_04    : Qt set for Jammy (older Qt6, lacks some 24.04+ packages)
-#   - QT_PKGS          : Qt set for 24.04+ (the default)
+#   - COMMON_PKGS      : tools common to all distro versions (User's Guide, …)
+#   - QT_PKGS_22_04    : Qt set for Ubuntu Jammy (older Qt6)
+#   - QT_PKGS_DEBIAN_12: Qt set for Debian Bookworm (missing qt6-httpserver-dev)
+#   - QT_PKGS          : Qt set for Ubuntu 24.04+ and Debian 13+ (the default)
+#   - INTEL_OCL_PKGS   : Intel OpenCL ICD; empty for Debian 13 (not in Trixie).
+#                        ocl-icd-opencl-dev + pocl-opencl-icd in COMMON_PKGS
+#                        still provide the ICD loader and a CPU runtime.
 ARG COMMON_PKGS="\
     aspell \
     bibtex2html \
@@ -173,7 +177,6 @@ ARG COMMON_PKGS="\
     git \
     gnuplot-nox \
     inkscape \
-    intel-opencl-icd \
     latexmk \
     libcurl4-gnutls-dev \
     libmldbm-perl \
@@ -209,6 +212,19 @@ ARG QT_PKGS_22_04="\
     qt6-quick3d-dev \
     qttools5-dev \
     qtwebengine5-dev"
+ARG QT_PKGS_DEBIAN_12="\
+    libqt6core5compat6-dev \
+    libqt6opengl6-dev \
+    libqt6openglwidgets6 \
+    libqt6svg6-dev \
+    qt6-base-dev \
+    qt6-scxml-dev \
+    qt6-tools-dev \
+    qt6-tools-dev-tools \
+    qt6-webengine-dev \
+    qt6-websockets-dev \
+    qt6-quick3d-dev \
+    qtwebengine5-dev"
 ARG QT_PKGS="\
     libqt6core5compat6-dev \
     libqt6opengl6-dev \
@@ -223,13 +239,16 @@ ARG QT_PKGS="\
     qt6-websockets-dev \
     qt6-quick3d-dev \
     qtwebengine5-dev"
-RUN apt-get update \
+ARG INTEL_OCL_PKGS="intel-opencl-icd"
+RUN export DEBIAN_FRONTEND=noninteractive && \
+  apt-get update \
   && . /etc/os-release \
-  && case "${VERSION_ID}" in \
-       22.04) qt="${QT_PKGS_22_04}" ;; \
-       *)     qt="${QT_PKGS}" ;; \
+  && case "${ID}:${VERSION_ID}" in \
+       ubuntu:22.04) qt="${QT_PKGS_22_04}" ;; \
+       debian:12)    qt="${QT_PKGS_DEBIAN_12}" ;; \
+       *)            qt="${QT_PKGS}" ;; \
      esac \
-  && apt-get install -qy ${COMMON_PKGS} ${qt} \
+  && apt-get install -qy ${COMMON_PKGS} ${qt} ${INTEL_OCL_PKGS} \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -240,7 +259,7 @@ ENV PATH="/opt/venv/bin:$PATH"
 # ── cmake-4 add-on: full + CMake 4 from the official Kitware release ──────────
 # Overrides any apt-provided cmake. Built with `--target cmake-4`.
 FROM full AS cmake-4
-LABEL org.opencontainers.image.description="OpenModelica build-deps (Ubuntu) with latest CMake 4"
+LABEL org.opencontainers.image.description="OpenModelica build-deps with latest CMake 4"
 ARG CMAKE_VERSION=4.3.4
 RUN curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-$(uname -m).sh" \
       -o /tmp/cmake-install.sh \
@@ -252,16 +271,24 @@ RUN curl -fsSL "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERS
 # Overrides nothing in full; adds debuggers and profilers on top.
 # Built with `--target debug`.
 FROM full AS debug
-LABEL org.opencontainers.image.description="OpenModelica build-deps (Ubuntu) with debug tools"
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
+LABEL org.opencontainers.image.description="OpenModelica build-deps with debug tools"
+RUN export DEBIAN_FRONTEND=noninteractive && \
+  apt-get update \
+  && . /etc/os-release \
+  && case "${ID}" in \
+       ubuntu) linux_perf="linux-tools-generic" ;; \
+       *)      linux_perf="linux-perf" ;; \
+     esac \
   && apt-get install -qy \
     gdb \
-    linux-tools-generic \
     valgrind \
+    ${linux_perf} \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
+# ── rust add-on: full + Rust toolchain + Emscripten + Qt for Wasm ─────────────
+# Ubuntu only (uses flang and Ubuntu-specific Qt Wasm build).
+# Built with `--target rust`.
 FROM full AS rust
 LABEL org.opencontainers.image.description="OpenModelica build-deps (Ubuntu) for the Rust targets"
 
