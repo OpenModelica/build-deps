@@ -67,7 +67,7 @@ done
 if [ "${SIGN}" = "true" ]; then
   for image in "${PUSHED_TAGS[@]}"; do
     echo "Signing ${image}"
-    cosign sign --yes "${image}"
+    cosign sign --yes --registry-referrers-mode=oci-1-1 "${image}"
   done
 fi
 
