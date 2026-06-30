@@ -37,6 +37,7 @@ build_and_push() {
     --pull \
     --file "${dockerfile}" \
     "${tag_args[@]}" \
+    --cache-from "type=gha,scope=${moving}" \
     --push \
     "$@" \
     "${context}"

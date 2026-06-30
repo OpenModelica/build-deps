@@ -28,7 +28,8 @@ main
 └── .ci/
     ├── matrix.yml          # source of truth: which images exist
     ├── matrix.py           # matrix.yml -> CI matrix / tag lookup
-    └── publish.sh          # build + push one image (base + add-ons)
+    ├── build.sh            # build one image (base + add-ons), write GHA cache
+    └── publish.sh          # restore GHA cache, push + sign one image
 ```
 
 - **Base image** — one per OS/OS-version. Contains everything needed to build

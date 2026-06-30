@@ -115,36 +115,7 @@ jobs:
           TARGET: ${{ matrix.image.target }}
           BUILD_ARGS: ${{ matrix.image.build_args }}
           ADDONS: ${{ matrix.image.addons }}
-        run: |
-          set -euo pipefail
-
-          # Common build-args (e.g. UBUNTU_VERSION) apply to every stage.
-          common_args=()
-          for kv in ${BUILD_ARGS}; do common_args+=(--build-arg "${kv}"); done
-
-          # Base image: the image's `target` stage (or the final stage).
-          base_target_arg=()
-          [ -n "${TARGET}" ] && base_target_arg=(--target "${TARGET}")
-          echo "::group::Building base ${BASE_TAG}"
-          docker buildx build \
-            --file "${DOCKERFILE}" \
-            "${common_args[@]}" "${base_target_arg[@]}" \
-            --tag "local/build-deps:${BASE_TAG}" \
-            --load \
-            "${CONTEXT}"
-          echo "::endgroup::"
-
-          # Add-ons: each is a --target stage in the same Dockerfile.
-          for addon in ${ADDONS}; do
-            echo "::group::Building add-on ${addon}"
-            docker buildx build \
-              --file "${DOCKERFILE}" \
-              "${common_args[@]}" --target "${addon}" \
-              --tag "local/build-deps:${BASE_TAG}-${addon}" \
-              --load \
-              "${CONTEXT}"
-            echo "::endgroup::"
-          done
+        run: ./.ci/build.sh
 
   release:
     name: Create GitHub Release
