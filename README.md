@@ -132,7 +132,7 @@ discover ─▶ build (all images, no push)
 - **publish-ghcr / publish-nexus** — build and push (and on GHCR **sign**) the
   images to GHCR and Nexus. Moving tags (`<os>-<version>`) are updated on every
   push to `main`, the weekly schedule, and `workflow_dispatch`. Immutable tags
-  (`<os>-<version>-<semver>`) are pushed only on a release tag.
+  (`<os>-<version>-<semver>`) are pushed on a release tag, and can also be republished via `workflow_dispatch` when a global `v<semver>` is supplied.
 
 ## Releasing a new image version
 
