@@ -34,12 +34,20 @@ and answers questions for the GitHub Actions workflows:
 
         Intended to be consumed with ``eval "$(python .ci/matrix.py image …)"``.
 
-    matrix.py publish-matrix <date>
-        Print, on one line, a JSON array of ``{"tag": "<base_tag>-<date>"}``
-        objects for every image in the matrix. Used by the scheduled workflow
-        to build the publish job matrix with date-stamped immutable tags::
+    matrix.py publish-matrix [<semver>]
+        Print, on one line, a JSON array of publish-job descriptors for every
+        image in the matrix.
 
-            [{"tag":"ubuntu-24.04-2026.06.23"},{"tag":"ubuntu-22.04-2026.06.23"}]
+        Without ``<semver>``: returns moving-tag-only descriptors (used when
+        publishing from ``main`` or the scheduled rebuild)::
+
+            [{"tag":"ubuntu-24.04"},{"tag":"ubuntu-22.04"}]
+
+        With ``<semver>``: returns immutable-tag descriptors synthesized from a
+        global release tag such as ``v2.1.0`` (pass the version without the
+        leading ``v``)::
+
+            [{"tag":"ubuntu-24.04-2.1.0"},{"tag":"ubuntu-22.04-2.1.0"}]
 """
 
 from __future__ import annotations
@@ -94,23 +102,43 @@ def cmd_all():
     print(json.dumps(load_images(), separators=(",", ":")))
 
 
-def cmd_publish_matrix(date: str):
+def cmd_publish_matrix(semver: str | None = None):
     images = load_images()
-    result = [{"tag": f"{img['base_tag']}-{date}"} for img in images]
+    if semver is None:
+        result = [{"tag": img["base_tag"]} for img in images]
+    else:
+        result = [{"tag": f"{img['base_tag']}-{semver}"} for img in images]
     print(json.dumps(result, separators=(",", ":")))
 
 
 def cmd_image(tag: str):
+    images = load_images()
+
+    # Exact base-tag match → moving-only publish (no semver).
+    for img in images:
+        if img["base_tag"] == tag:
+            print(f"dir={shlex.quote(img['dir'])}")
+            print(f"base_tag={shlex.quote(img['base_tag'])}")
+            print(f"semver=''")
+            print(f"context={shlex.quote(img['context'])}")
+            print(f"dockerfile={shlex.quote(img['dockerfile'])}")
+            print(f"target={shlex.quote(img['target'])}")
+            print(f"build_args={shlex.quote(img['build_args'])}")
+            print(f"addons={shlex.quote(img['addons'])}")
+            return
+
     match = SEMVER_RE.match(tag)
     if not match:
+        valid = ", ".join(img["base_tag"] for img in images)
         sys.exit(
-            f"error: tag '{tag}' is not of the form <os>-<version>-<semver> "
-            f"(e.g. ubuntu-24.04-2.1.0 or ubuntu-24.04-main)"
+            f"error: tag '{tag}' is not a known base tag and is not of the form "
+            f"<os>-<version>-<semver> (e.g. ubuntu-24.04 or ubuntu-24.04-2.1.0). "
+            f"Known base tags: {valid}"
         )
     prefix = match.group("prefix")
     semver = match.group("semver")
 
-    for img in load_images():
+    for img in images:
         if img["base_tag"] == prefix:
             print(f"dir={shlex.quote(img['dir'])}")
             print(f"base_tag={shlex.quote(img['base_tag'])}")
@@ -122,7 +150,7 @@ def cmd_image(tag: str):
             print(f"addons={shlex.quote(img['addons'])}")
             return
 
-    valid = ", ".join(img["base_tag"] for img in load_images())
+    valid = ", ".join(img["base_tag"] for img in images)
     sys.exit(
         f"error: no image matches tag prefix '{prefix}'. "
         f"Known images: {valid}"
@@ -134,10 +162,10 @@ def main(argv):
         cmd_all()
     elif len(argv) >= 3 and argv[1] == "image":
         cmd_image(argv[2])
-    elif len(argv) >= 3 and argv[1] == "publish-matrix":
-        cmd_publish_matrix(argv[2])
+    elif len(argv) >= 2 and argv[1] == "publish-matrix":
+        cmd_publish_matrix(argv[2] if len(argv) >= 3 else None)
     else:
-        sys.exit(f"usage: {argv[0]} all | image <tag> | publish-matrix <date>")
+        sys.exit(f"usage: {argv[0]} all | image <tag> | publish-matrix [<semver>]")
 
 
 if __name__ == "__main__":

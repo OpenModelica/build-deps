@@ -6,20 +6,15 @@ name: Build, Release & Publish
 #   discover ─▶ build (all images, no push)
 #                 └─▶ release (tag only) ─▶ publish-ghcr + publish-nexus
 #
-# A single repo-wide semver tag (e.g. v2.1.0) releases ALL images at once.
-# The per-image Docker tags (e.g. ubuntu-24.04-2.1.0) are synthesized from it.
-#
 # Triggers:
-#   schedule        Weekly rolling rebuild (Sunday night → Monday 03:30 UTC).
-#                   Publishes every image with a date-based immutable tag
-#                   (YYYY.MM.DD) in addition to the moving tag, without creating
-#                   a GitHub Release.
-#   push tag        Full release: GitHub Release + immutable semver tags for
-#                   all images. Tag must be of the form v<MAJOR>.<MINOR>.<PATCH>.
-#   push main       Publishes every image with a moving `-main` tag.
-#   workflow_dispatch Re-publish on demand: global tag (e.g. v2.1.0) rebuilds
-#                   all images; a single image tag (e.g. ubuntu-24.04-2.1.0)
-#                   rebuilds just that image.
+#   push main         Publishes every image with the moving tag (<os>-<version>).
+#   schedule          Weekly rolling rebuild — republishes the moving tags.
+#   push tag          Full release: GitHub Release + immutable semver tags for
+#                     all images. Tag must be of the form v<MAJOR>.<MINOR>.<PATCH>.
+#   workflow_dispatch Re-publish on demand. Leave the tag input empty to rebuild
+#                     all moving tags; pass a global tag (e.g. v2.1.0) to rebuild
+#                     all images with immutable tags; pass a single image tag
+#                     (e.g. ubuntu-24.04-2.1.0) to rebuild just that image.
 
 on:
   schedule:
@@ -35,8 +30,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Version to (re)publish: global tag (e.g. v2.1.0) rebuilds all images; single image tag (e.g. ubuntu-24.04-2.1.0) rebuilds one'
-        required: true
+        description: 'Optional: version to (re)publish. Empty = rebuild all moving tags. Global tag (e.g. v2.1.0) = all images with immutable tags. Single image tag (e.g. ubuntu-24.04-2.1.0) = one image with immutable tag.'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -69,11 +65,12 @@ jobs:
         run: |
           case "${EVENT_NAME}" in
             schedule)
-              DATE=$(date +%Y.%m.%d)
-              echo "matrix=$(python3 .ci/matrix.py publish-matrix "${DATE}")" >> "$GITHUB_OUTPUT"
+              echo "matrix=$(python3 .ci/matrix.py publish-matrix)" >> "$GITHUB_OUTPUT"
               ;;
             workflow_dispatch)
-              if [[ "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              if [[ -z "${INPUT_TAG}" ]]; then
+                echo "matrix=$(python3 .ci/matrix.py publish-matrix)" >> "$GITHUB_OUTPUT"
+              elif [[ "${INPUT_TAG}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
                 echo "matrix=$(python3 .ci/matrix.py publish-matrix "${INPUT_TAG#v}")" >> "$GITHUB_OUTPUT"
               else
                 python3 .ci/matrix.py image "${INPUT_TAG}" > /dev/null
@@ -84,7 +81,7 @@ jobs:
               if [[ "${GH_REF}" == refs/tags/v* ]]; then
                 echo "matrix=$(python3 .ci/matrix.py publish-matrix "${GH_REF_NAME#v}")" >> "$GITHUB_OUTPUT"
               elif [[ "${GH_REF}" == refs/heads/main ]]; then
-                echo "matrix=$(python3 .ci/matrix.py publish-matrix main)" >> "$GITHUB_OUTPUT"
+                echo "matrix=$(python3 .ci/matrix.py publish-matrix)" >> "$GITHUB_OUTPUT"
               else
                 echo 'matrix=[]' >> "$GITHUB_OUTPUT"
               fi
@@ -231,9 +228,11 @@ jobs:
           eval "$(python .ci/matrix.py image "${TAG}")"
           CERT_ID="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/build.yml@${GITHUB_REF}"
           CERT_ISSUER="https://token.actions.githubusercontent.com"
-          tags=("${base_tag}" "${base_tag}-${semver}")
+          tags=("${base_tag}")
+          [[ -n "${semver}" ]] && tags+=("${base_tag}-${semver}")
           for addon in ${addons}; do
-            tags+=("${base_tag}-${addon}" "${base_tag}-${addon}-${semver}")
+            tags+=("${base_tag}-${addon}")
+            [[ -n "${semver}" ]] && tags+=("${base_tag}-${addon}-${semver}")
           done
           for t in "${tags[@]}"; do
             echo "Verifying ${REGISTRY}:${t}"

@@ -56,13 +56,12 @@ matrix entry).
 One image repository per registry; OS, version and variant are encoded in the
 **tag**:
 
-| Tag                           | Mutable?  | Meaning                                                  |
-| ----------------------------- | --------- | -------------------------------------------------------- |
-| `ubuntu-24.04`                | moving    | Latest base image for Ubuntu 24.04                       |
-| `ubuntu-24.04-2.1.0`          | immutable | Pinned base, synthesized from git tag `v2.1.0`           |
-| `ubuntu-24.04-cmake-4`        | moving    | Latest CMake 4 add-on on the 24.04 base                  |
-| `ubuntu-24.04-cmake-4-2.1.0`  | immutable | Pinned add-on, synthesized from git tag `v2.1.0`         |
-| `ubuntu-24.04-main`           | moving    | Latest build from the `main` branch                      |
+| Tag                           | Mutable?  | Meaning                                               |
+| ----------------------------- | --------- | ----------------------------------------------------- |
+| `ubuntu-24.04`                | moving    | Latest base image for Ubuntu 24.04                    |
+| `ubuntu-24.04-2.1.0`          | immutable | Pinned base, synthesized from git tag `v2.1.0`        |
+| `ubuntu-24.04-cmake-4`        | moving    | Latest CMake 4 add-on on the 24.04 base               |
+| `ubuntu-24.04-cmake-4-2.1.0`  | immutable | Pinned add-on, synthesized from git tag `v2.1.0`      |
 
 Releasing is done by pushing a single repo-wide git tag `v<MAJOR>.<MINOR>.<PATCH>`
 (e.g. `v2.1.0`). CI synthesizes the per-image immutable Docker tags from it and
@@ -129,10 +128,10 @@ discover ─▶ build (all images, no push)
 - **build** — on every push/PR to `main` (and as the gate before release),
   builds every base + add-on declared in `.ci/matrix.yml` (no push).
 - **release** — on an repo-wide release tag, creates/updates the GitHub Release.
-- **publish-ghcr / publish-nexus** — build, push (and on GHCR **sign**) the
-  tagged image (base + add-ons) to GHCR and Nexus. Triggered by a release tag,
-  a push to `main` (tags ending in `-main`), the weekly schedule, or
-  `workflow_dispatch` with a `tag` input to re-publish on demand.
+- **publish-ghcr / publish-nexus** — build and push (and on GHCR **sign**) the
+  images to GHCR and Nexus. Moving tags (`<os>-<version>`) are updated on every
+  push to `main`, the weekly schedule, and `workflow_dispatch`. Immutable tags
+  (`<os>-<version>-<semver>`) are pushed only on a release tag.
 
 ## Releasing a new image version
 
