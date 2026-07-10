@@ -24,7 +24,7 @@ main
 ├── apk/
 │   └── Dockerfile          # multi-stage: Alpine Linux + add-ons
 ├── rpm/
-│   └── Dockerfile          # multi-stage: AlmaLinux, Rocky Linux, RHEL, Fedora
+│   └── Dockerfile          # multi-stage: AlmaLinux, RHEL, Fedora
 ├── pacman/
 │   └── Dockerfile          # placeholder (not implemented yet)
 └── .ci/
@@ -83,7 +83,6 @@ OpenModelica release needs a frozen environment it pins the **immutable** tag.
 | Alpine 3.24             | `alpine-3.24`   | `omsimulator`                     | `apk/Dockerfile` |
 | AlmaLinux 10            | `almalinux-10`  | –                                 | `rpm/Dockerfile` |
 | AlmaLinux 9             | `almalinux-9`   | –                                 | `rpm/Dockerfile` |
-| Rocky Linux 10          | `rockylinux-10` | –                                 | `rpm/Dockerfile` |
 | Fedora 44               | `fedora-44`     | –                                 | `rpm/Dockerfile` |
 | Fedora 43               | `fedora-43`     | –                                 | `rpm/Dockerfile` |
 
@@ -138,7 +137,7 @@ docker build --pull \
   apk
 ```
 
-**Enterprise Linux** (AlmaLinux, Rocky Linux, RHEL) and **Fedora** share
+**Enterprise Linux** (AlmaLinux, RHEL) and **Fedora** share
 [rpm/Dockerfile][rpm-dockerfile]. `DISTRO` and `VERSION` select the base image;
 EPEL/CRB, Qt5/Qt6, autoconf 2.7x and gcc-toolset are picked from `ID`/`PLATFORM_ID`
 at build time:
@@ -149,13 +148,6 @@ docker build --pull --no-cache \
   --target full \
   --build-arg DISTRO=almalinux --build-arg VERSION=10 \
   --tag build-deps:almalinux-10 \
-  rpm
-
-# Rocky Linux
-docker build --pull --no-cache \
-  --target full \
-  --build-arg DISTRO=rockylinux --build-arg VERSION=10 \
-  --tag build-deps:rockylinux-10 \
   rpm
 
 # Fedora

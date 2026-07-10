@@ -1,5 +1,5 @@
 # Multi-stage, shared image for the RPM-based distros: the enterprise family
-# AlmaLinux / Rocky Linux / RHEL (all EL = Enterprise Linux, i.e. the `rhel`
+# AlmaLinux / RHEL (all EL = Enterprise Linux, i.e. the `rhel`
 # family) and Fedora. A single Dockerfile covers EL 9, 10 and Fedora 43, 44;
 # DISTRO and VERSION are the only per-image differences, plus a handful of
 # distro-specific packages (Qt5 vs Qt6, EPEL/CRB, autoconf 2.7x, gcc-toolset,
@@ -22,12 +22,12 @@
 # Build the base image (the `full` target):
 #   docker build --target full --build-arg DISTRO=almalinux --build-arg VERSION=10 \
 #     --tag build-deps:almalinux-10 rpm
-#   docker build --target full --build-arg DISTRO=rockylinux --build-arg VERSION=10 \
-#     --tag build-deps:rockylinux-10 rpm
+#   docker build --target full --build-arg DISTRO=almalinux --build-arg VERSION=9 \
+#     --tag build-deps:almalinux-9 rpm
 #   docker build --target full --build-arg DISTRO=fedora --build-arg VERSION=44 \
 #     --tag build-deps:fedora-44 rpm
 #
-# RHEL: the public AlmaLinux / Rocky images are bug-for-bug EL rebuilds, so the
+# RHEL: the public AlmaLinux images are bug-for-bug EL rebuilds, so the
 # same recipe applies to a RHEL/UBI base — pass DISTRO/VERSION for a RHEL base
 # image (e.g. redhat/ubi9) that your build host is entitled to.
 #
@@ -57,21 +57,25 @@ ENV SHELL=/bin/bash \
 # Package lists as build-args, so they are easy to read and to override:
 #   - BUILD_PKGS  : build dependencies common to every distro (spec's
 #                   version-independent BuildRequires).
-#   - QT6_PKGS    : Qt6 build set for EL 9, EL 10 and Fedora. OMEdit's CMake
-#                   build needs Qt6 (the Quick3D component is effectively
-#                   Qt6-only on EL/Fedora), so everything with Qt6 available
-#                   uses it. qt6-qtbase-devel already ships /usr/bin/qmake.
-#   - QT5_PKGS    : Qt5 fallback for EL 8 only (no Qt6 in EL 8 AppStream). Note
-#                   EL 8 lacks qt5-qtquick3d, so an OMEdit build needing Quick3D
-#                   cannot be satisfied there; EL 8 is not in .ci/matrix.yml.
+#   - QT6_PKGS    : Qt6 build set for EL 10 and Fedora. qt6-qtbase-devel already
+#                   ships /usr/bin/qmake.
+#   - QT5_PKGS    : Qt5 build set for EL 8 and EL 9 — this matches upstream's
+#                   openmodelica.spec, which builds Qt5 on rhel <= 9 and reserves
+#                   Qt6 for EL 10. On EL 9, EPEL's Qt6 stack is currently
+#                   unbuildable anyway: qt6-linguist needs an LLVM (libclang) soname
+#                   that EL 9 AppStream no longer ships, and LinguistTools is a
+#                   required OMEdit Qt component. OMEdit's Quick3D animation backend
+#                   (Qt6-only) is opt-in (OM_OMEDIT_ANIMATION_QUICK3D, OFF by
+#                   default; OpenSceneGraph is the default), so Qt5 here is fine.
 #   - FEDORA_PKGS : Fedora-only BuildRequires the EL builds skip — omniORB/lpsolve
 #                   (the --with-omniORB branch, taken when rhel < 8, i.e. also on
 #                   Fedora). OMEdit's 3D animation uses Qt Quick 3D
 #                   (qt6-qtquick3d-devel, in QT6_PKGS), not OpenSceneGraph.
 # Distro-specific extras handled in the RUN case block below:
 #   - EL only : EPEL + CRB/powertools (Fedora needs neither).
-#   - EL 8/9  : autoconf 2.7x (from EPEL) symlinked as autoconf/autoreconf/…
-#   - EL 8    : gcc-toolset-11 (default gcc 8.5 is too old) + qmake -> qmake-qt5
+#   - EL 8/9  : autoconf 2.7x (from EPEL) symlinked as autoconf/autoreconf/…,
+#               Qt5 (QT5_PKGS) + qmake -> qmake-qt5
+#   - EL 8    : gcc-toolset-11 as well (default gcc 8.5 is too old)
 #   - EL 10   : nothing extra (new enough autoconf, qt6 already in QT6_PKGS)
 #   - Fedora  : new enough autoconf/gcc; qmake ships with qt6-qtbase-devel
 ARG BUILD_PKGS="\
@@ -102,11 +106,11 @@ ARG BUILD_PKGS="\
     uuid \
     uuid-devel \
     xz"
-# qtdeclarative provides the Qt Quick / Qml / QuickWidgets components and
-# qtquick3d the Quick3D component that OMEdit's CMake `find_package(Qt…
-# COMPONENTS Quick Quick3D Qml QuickWidgets)` requires. Both sets carry
+# qtdeclarative provides the Qt Quick / Qml / QuickWidgets components; qtquick3d
+# provides the Quick3D component of OMEdit's optional Qt Quick 3D animation
+# backend (OM_OMEDIT_ANIMATION_QUICK3D, OFF by default). Both sets carry
 # qtdeclarative; only Qt6 carries qtquick3d (Qt5 has no qtquick3d on EL/Fedora),
-# which is why EL 9 / Fedora build against Qt6 rather than Qt5.
+# so the Quick3D backend is only available on the Qt6 images (EL 10 / Fedora).
 ARG QT5_PKGS="\
     qt5-linguist \
     qt5-qt3d-devel \
@@ -134,7 +138,7 @@ ARG FEDORA_PKGS="\
 RUN dnf install -y dnf-plugins-core \
   && . /etc/os-release \
   # Fedora is matched by ID (its os-release leaves PLATFORM_ID empty); the EL
-  # family (almalinux/rocky/rhel) is matched by PLATFORM_ID (platform:elN).
+  # family (almalinux/rhel) is matched by PLATFORM_ID (platform:elN).
   && if [ "${ID}" = "fedora" ]; then \
        case "${VERSION_ID}" in \
          43 | 44) qt="${QT6_PKGS}" && extra="${FEDORA_PKGS}" ;; \
@@ -150,7 +154,7 @@ RUN dnf install -y dnf-plugins-core \
          platform:el9) \
            dnf install -y epel-release \
            && dnf config-manager --set-enabled crb \
-           && qt="${QT6_PKGS}" \
+           && qt="${QT5_PKGS}" \
            && extra="autoconf2.7x" ;; \
          platform:el10) \
            dnf install -y epel-release \

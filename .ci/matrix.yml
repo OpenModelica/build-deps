@@ -103,7 +103,7 @@ images:
     addons:
       - omsimulator
 
-  # RPM-based distros — the enterprise family (AlmaLinux, Rocky Linux, RHEL) and
+  # RPM-based distros — the enterprise family (AlmaLinux, RHEL) and
   # Fedora — share rpm/Dockerfile; only DISTRO and VERSION differ. The base image
   # is the `full` stage. EPEL/CRB, Qt5/Qt6, autoconf 2.7x, gcc-toolset and the
   # Fedora-only deps are selected from ID/PLATFORM_ID at build time — see
@@ -126,16 +126,6 @@ images:
     build_args:
       DISTRO: almalinux
       VERSION: "9"
-    addons: []
-
-  - os: rockylinux
-    version: "10"
-    context: rpm
-    dockerfile: rpm/Dockerfile
-    target: full
-    build_args:
-      DISTRO: rockylinux
-      VERSION: "10"
     addons: []
 
   - os: fedora
