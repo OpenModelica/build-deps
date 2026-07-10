@@ -69,15 +69,20 @@ ENV SHELL=/bin/bash \
 #                   default; OpenSceneGraph is the default), so Qt5 here is fine.
 #   - FEDORA_PKGS : Fedora-only BuildRequires the EL builds skip — omniORB/lpsolve
 #                   (the --with-omniORB branch, taken when rhel < 8, i.e. also on
-#                   Fedora). OMEdit's 3D animation uses Qt Quick 3D
-#                   (qt6-qtquick3d-devel, in QT6_PKGS), not OpenSceneGraph.
+#                   Fedora).
+#   - OSG_PKGS    : OpenSceneGraph-devel, OMEdit's default 3D animation backend
+#                   (Qt Quick 3D is the opt-in alternative). Added on every distro
+#                   that packages it — EL 8/9 (from EPEL) and Fedora,
+#                   EL 10 dropped OpenSceneGraph entirely, so it has no OSG
+#                   backend and relies on Qt Quick 3D (Qt6) instead.
 # Distro-specific extras handled in the RUN case block below:
 #   - EL only : EPEL + CRB/powertools (Fedora needs neither).
 #   - EL 8/9  : autoconf 2.7x (from EPEL) symlinked as autoconf/autoreconf/…,
-#               Qt5 (QT5_PKGS) + qmake -> qmake-qt5
+#               Qt5 (QT5_PKGS) + qmake -> qmake-qt5, OpenSceneGraph-devel (OSG_PKGS)
 #   - EL 8    : gcc-toolset-11 as well (default gcc 8.5 is too old)
-#   - EL 10   : nothing extra (new enough autoconf, qt6 already in QT6_PKGS)
-#   - Fedora  : new enough autoconf/gcc; qmake ships with qt6-qtbase-devel
+#   - EL 10   : nothing extra (new enough autoconf, qt6 already in QT6_PKGS; no OSG)
+#   - Fedora  : new enough autoconf/gcc; qmake ships with qt6-qtbase-devel;
+#               OpenSceneGraph-devel (OSG_PKGS)
 ARG BUILD_PKGS="\
     automake \
     bison \
@@ -134,6 +139,7 @@ ARG QT6_PKGS="\
 ARG FEDORA_PKGS="\
     lpsolve-devel \
     omniORB-devel"
+ARG OSG_PKGS="OpenSceneGraph-devel"
 
 RUN dnf install -y dnf-plugins-core \
   && . /etc/os-release \
@@ -141,7 +147,7 @@ RUN dnf install -y dnf-plugins-core \
   # family (almalinux/rhel) is matched by PLATFORM_ID (platform:elN).
   && if [ "${ID}" = "fedora" ]; then \
        case "${VERSION_ID}" in \
-         43 | 44) qt="${QT6_PKGS}" && extra="${FEDORA_PKGS}" ;; \
+         43 | 44) qt="${QT6_PKGS}" && extra="${FEDORA_PKGS} ${OSG_PKGS}" ;; \
          *) echo "Unsupported Fedora VERSION_ID: ${VERSION_ID}" >&2 && exit 1 ;; \
        esac; \
      else \
@@ -150,16 +156,17 @@ RUN dnf install -y dnf-plugins-core \
            dnf install -y epel-release \
            && dnf config-manager --set-enabled powertools \
            && qt="${QT5_PKGS}" \
-           && extra="autoconf2.7x gcc-toolset-11-gcc gcc-toolset-11-gcc-c++ gcc-toolset-11-gcc-gfortran" ;; \
+           && extra="autoconf2.7x gcc-toolset-11-gcc gcc-toolset-11-gcc-c++ gcc-toolset-11-gcc-gfortran ${OSG_PKGS}" ;; \
          platform:el9) \
            dnf install -y epel-release \
            && dnf config-manager --set-enabled crb \
            && qt="${QT5_PKGS}" \
-           && extra="autoconf2.7x" ;; \
+           && extra="autoconf2.7x ${OSG_PKGS}" ;; \
          platform:el10) \
            dnf install -y epel-release \
            && dnf config-manager --set-enabled crb \
            && qt="${QT6_PKGS}" \
+           # EL 10 has no OpenSceneGraph package; OMEdit uses Qt Quick 3D (Qt6).
            && extra="" ;; \
          *) echo "Unsupported PLATFORM_ID: ${PLATFORM_ID}" >&2 && exit 1 ;; \
        esac; \
