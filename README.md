@@ -26,7 +26,7 @@ main
 ├── rpm/
 │   └── Dockerfile          # multi-stage: AlmaLinux, RHEL, Fedora
 ├── pacman/
-│   └── Dockerfile          # placeholder (not implemented yet)
+│   └── Dockerfile          # multi-stage: Arch Linux + add-ons
 └── .ci/
     ├── matrix.yml          # source of truth: which images exist
     ├── matrix.py           # matrix.yml -> CI matrix / tag lookup
@@ -81,6 +81,7 @@ OpenModelica release needs a frozen environment it pins the **immutable** tag.
 | Debian 13 (Trixie)      | `debian-13`     | `cmake-4`, `debug`                | `apt/Dockerfile` |
 | Debian 12 (Bookworm)    | `debian-12`     | `cmake-4`, `debug`                | `apt/Dockerfile` |
 | Alpine 3.24             | `alpine-3.24`   | `omsimulator`                     | `apk/Dockerfile` |
+| Arch (rolling)          | `arch-rolling`  | –                                 | `pacman/Dockerfile` |
 | AlmaLinux 10            | `almalinux-10`  | –                                 | `rpm/Dockerfile` |
 | AlmaLinux 9             | `almalinux-9`   | –                                 | `rpm/Dockerfile` |
 | Fedora 44               | `fedora-44`     | –                                 | `rpm/Dockerfile` |
@@ -135,6 +136,17 @@ docker build --pull \
   --build-arg VERSION=3.24 \
   --tag build-deps:alpine-3.24-omsimulator \
   apk
+```
+
+**Arch Linux** uses the separate [pacman/Dockerfile][pacman-dockerfile] context.
+Arch is rolling-release with no version build-arg, and has no OpenModelica pacman
+repo, so the build dependencies are installed directly:
+
+```bash
+docker build --pull --no-cache \
+  --target full \
+  --tag build-deps:arch-rolling \
+  pacman
 ```
 
 **Enterprise Linux** (AlmaLinux, RHEL) and **Fedora** share
@@ -209,6 +221,7 @@ See [LICENSE.md][license-md].
 [matrix-yml]: ./.ci/matrix.yml
 [apt-dockerfile]: ./apt/Dockerfile
 [apk-dockerfile]: ./apk/Dockerfile
+[pacman-dockerfile]: ./pacman/Dockerfile
 [rpm-dockerfile]: ./rpm/Dockerfile
 [workflow-build-file]: ./.github/workflows/build.yml
 [releasing-md]: ./RELEASING.md

@@ -148,12 +148,10 @@ images:
       VERSION: "43"
     addons: []
 
-  # Placeholders — not implemented yet. Uncomment and flesh out once the
-  # corresponding Dockerfile is real, so CI starts building them.
-  #
-  # - os: arch
-  #   version: "rolling"
-  #   context: pacman
-  #   dockerfile: pacman/Dockerfile
-  #   target: full
-  #   addons: []
+  # Arch Linux — rolling release with no version suffix.
+  - os: arch
+    version: "rolling"
+    context: pacman
+    dockerfile: pacman/Dockerfile
+    target: full
+    addons: []
