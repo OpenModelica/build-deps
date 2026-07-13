@@ -37,7 +37,7 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Cleanup build-deps package
-        uses: dataaxiom/ghcr-cleanup-action@v1.2.2
+        uses: dataaxiom/ghcr-cleanup-action@d52806a0dc70b430571a37da1fde39733ffd640f # v1.2.2
         with:
           package: build-deps
           delete-untagged: true
