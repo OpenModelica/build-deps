@@ -164,11 +164,20 @@ ENV PATH="/opt/venv/bin:$PATH"
 # linux-headers, make, musl-dev, readline-dev, util-linux) is already in `base`,
 # so only the X11/mesa dev libraries are added here. Built with
 # `--target omsimulator`.
+#
+# gcovr/llvm/compiler-rt add CTest coverage support for both toolchains: gcc's
+# gcov is already pulled in by build-base, gcovr turns --coverage .gcda/.gcno
+# output into reports, and clang (already in `base`) needs compiler-rt for its
+# profiling runtime (libclang_rt.profile) plus llvm for llvm-profdata/llvm-cov
+# to turn -fprofile-instr-generate output into the same gcov-format reports.
 FROM full AS omsimulator
 LABEL org.opencontainers.image.description="OMSimulator build-deps"
 RUN apk add --no-cache \
+    compiler-rt \
+    gcovr \
     libxcursor-dev \
     libxi-dev \
     libxinerama-dev \
     libxrandr-dev \
+    llvm \
     mesa-dev
