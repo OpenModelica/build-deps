@@ -349,7 +349,7 @@ RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
 # zig from apt is too old
 ARG ZIGLANG_VERSION="0.16.0"
 RUN pip install --no-cache-dir "ziglang==${ZIGLANG_VERSION}" \
-  && cargo zigbuild --version && python3 -m ziglang version
+  && python3 -m ziglang version
 
 # Prime zig's libc/compiler_rt cache for the FMU-loader cross targets. Under its
 # own CARGO_HOME: running cargo as root in the shared one leaves a root-owned
