@@ -347,14 +347,19 @@ RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# Prime zig's libc/compiler_rt cache for the FMU-loader cross targets.
-RUN mkdir -p /tmp/zigprime/src && cd /tmp/zigprime \
+# Prime zig's libc/compiler_rt cache for the FMU-loader cross targets. Under its
+# own CARGO_HOME: running cargo as root in the shared one leaves a root-owned
+# $CARGO_HOME/.package-cache behind, and when cargo cannot open that file it
+# drops the package cache lock *silently* (it tolerates a read-only CARGO_HOME),
+# so concurrent cargo processes corrupt each other's git checkouts.
+RUN export CARGO_HOME=/tmp/zigprime-cargo \
+  && mkdir -p /tmp/zigprime/src && cd /tmp/zigprime \
   && printf '[package]\nname = "zigprime"\nversion = "0.0.0"\nedition = "2021"\n[lib]\ncrate-type = ["cdylib"]\n' > Cargo.toml \
   && echo '#[no_mangle] pub extern "C" fn zigprime() {}' > src/lib.rs \
   && for t in aarch64-unknown-linux-gnu x86_64-apple-darwin aarch64-apple-darwin; do \
        cargo zigbuild --release --target "$t" || exit 1; \
      done \
-  && cd / && rm -rf /tmp/zigprime \
+  && cd / && rm -rf /tmp/zigprime /tmp/zigprime-cargo \
   && chmod ugo+rwx -R /opt/zig-cache /opt/cargo-zigbuild
 
 # ── OMSimulator add-on: full + X11 dev libs OMSimulator's GUI links against ───
