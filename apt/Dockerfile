@@ -127,7 +127,8 @@ RUN curl https://sh.rustup.rs | bash -s -- -y \
       --target x86_64-apple-darwin \
       --target aarch64-apple-darwin \
       --target wasm32-unknown-unknown \
-      --target wasm32-wasip1 && \
+      --target wasm32-wasip1 \
+      --target wasm32-wasip1-threads && \
     . "$CARGO_HOME/env" && \
     which cargo && cargo --version && \
     rustup component add rustc-codegen-cranelift-preview clippy rustfmt rust-src && \
