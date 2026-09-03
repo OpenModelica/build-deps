@@ -127,12 +127,13 @@ RUN pip install --no-cache-dir \
 # ── full: the published base image ────────────────────────────────────────────
 #   - Qt6 for OMEdit (base + the modules OpenModelica links against)
 #   - OpenSceneGraph for the OMEdit 3D animation view
+#   - HDF5 for ModelicaIO's MAT v7.3 support
 #   - doc generators (doxygen, graphviz) and a few build utilities
 FROM base AS full
 
 # Package lists as build-args, so they are easy to read and to override.
 #   - QT_PKGS   : Qt6 modules OMEdit builds against
-#   - EXTRA_PKGS: OpenSceneGraph, doc generators and misc build utilities
+#   - EXTRA_PKGS: OpenSceneGraph, HDF5, doc generators and misc build utilities
 ARG QT_PKGS="\
     qt6-qt5compat-dev \
     qt6-qtbase-dev \
@@ -150,6 +151,7 @@ ARG EXTRA_PKGS="\
     doxygen \
     gnuplot \
     graphviz \
+    hdf5-dev \
     jq \
     openscenegraph-dev"
 RUN apk add --no-cache ${QT_PKGS} ${EXTRA_PKGS}

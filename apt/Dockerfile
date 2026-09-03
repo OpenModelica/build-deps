@@ -204,6 +204,7 @@ ARG COMMON_PKGS="\
     jq \
     latexmk \
     libcurl4-gnutls-dev \
+    libhdf5-dev \
     libmldbm-perl \
     llvm \
     llvm-dev \
