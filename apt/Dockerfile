@@ -112,6 +112,10 @@ ARG RUST_NIGHTLY="nightly-2026-05-31"
 # apt build is 120; wasm-bindgen is newer and emits newer opcodes.
 ARG BINARYEN_VERSION="version_130"
 ARG BINARYEN_SHA256="0a18362361ad05465118cd8eeb72edaeec89de6894bc283576ef4e07aa3babcc"
+# 0.23.4 passes a `-Wl,<path>` input file to zig cc positionally (rust-cross/
+# cargo-zigbuild#477), which detaches the list from `-exported_symbols_list`, so
+# the zigprime cdylib below fails to link for *-apple-darwin.
+ARG CARGO_ZIGBUILD_VERSION="0.23.3"
 
 ENV RUSTUP_HOME=/opt/rust/rustup \
   CARGO_HOME=/opt/rust/cargo \
@@ -142,7 +146,7 @@ RUN curl https://sh.rustup.rs | bash -s -- -y \
     install -m755 "/tmp/binaryen-${BINARYEN_VERSION}/bin/wasm-merge" "$CARGO_HOME/bin/wasm-merge" && \
     rm -rf /tmp/binaryen.tar.gz "/tmp/binaryen-${BINARYEN_VERSION}" && \
     cargo install --locked cargo-xwin && \
-    cargo install --locked cargo-zigbuild && \
+    cargo install --locked cargo-zigbuild --version "${CARGO_ZIGBUILD_VERSION}" && \
     cargo xwin cache xwin \
       --xwin-arch x86_64,aarch64 && \
     rm -rf "$CARGO_HOME/registry" "$CARGO_HOME/git" \
