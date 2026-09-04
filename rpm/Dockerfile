@@ -248,3 +248,19 @@ RUN dnf install -y ${COMMON_PKGS} \
 # Pull in the venv built in its own stage instead of rebuilding it here.
 COPY --from=venv /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
+
+# Stable Rust toolchain + sccache, from upstream rustup rather than the distro
+# package, which is only a rustup-init on Fedora.
+# openssl-devel/pkgconfig are for sccache's openssl-sys dependency.
+ENV RUSTUP_HOME=/usr/local/rustup \
+  CARGO_HOME=/usr/local/cargo \
+  PATH=/usr/local/cargo/bin:$PATH
+RUN dnf install -y openssl-devel pkgconfig \
+  && (command -v curl > /dev/null || dnf install -y curl) \
+  && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+     | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable \
+  && cargo install sccache --locked \
+  && rm -rf "$CARGO_HOME/registry" "$CARGO_HOME/git" \
+  && chmod ugo+rwx -R /usr/local/rustup /usr/local/cargo \
+  && dnf clean all \
+  && rm -rf /var/cache/dnf
