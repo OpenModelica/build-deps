@@ -288,6 +288,22 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 COPY --from=venv /opt/venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
+# Stable Rust toolchain + sccache, from upstream rustup rather than the distro
+# package, which is only a rustup-init on some of them.
+# The `rust` add-on below overrides this with its own nightly in /opt/rust.
+ENV RUSTUP_HOME=/usr/local/rustup \
+  CARGO_HOME=/usr/local/cargo \
+  PATH=/usr/local/cargo/bin:$PATH
+RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
+  && apt-get install -qy --no-install-recommends curl libssl-dev pkg-config \
+  && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+     | sh -s -- -y --no-modify-path --profile minimal --default-toolchain stable \
+  && cargo install sccache --locked \
+  && rm -rf "$CARGO_HOME/registry" "$CARGO_HOME/git" \
+  && chmod ugo+rwx -R /usr/local/rustup /usr/local/cargo \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
 # ── cmake-4 add-on: full + CMake 4 from the official Kitware release ──────────
 # Overrides any apt-provided cmake. Built with `--target cmake-4`.
 FROM full AS cmake-4
