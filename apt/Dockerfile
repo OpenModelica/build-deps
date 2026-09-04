@@ -132,6 +132,7 @@ RUN curl https://sh.rustup.rs | bash -s -- -y \
       --target aarch64-apple-darwin \
       --target wasm32-unknown-unknown \
       --target wasm32-wasip1 \
+      --target wasm32-unknown-emscripten \
       --target wasm32-wasip1-threads && \
     . "$CARGO_HOME/env" && \
     which cargo && cargo --version && \
