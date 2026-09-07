@@ -8,15 +8,10 @@ and answers questions for the GitHub Actions workflows:
         Print, on one line, a JSON array of every image. Used as the
         ``strategy.matrix`` for the build workflow. Each element looks like::
 
-            {"os": "ubuntu", "version": "24.04", "dir": "ubuntu/24.04",
-             "base_tag": "ubuntu-24.04", "context": "ubuntu",
-             "dockerfile": "ubuntu/Dockerfile", "target": "full",
-             "build_args": "UBUNTU_VERSION=24.04", "addons": "cmake-4"}
+            {"os": "ubuntu", "version": "24.04", "base_tag": "ubuntu-24.04"}
 
-        ``target`` is the build stage for the base image ("" = final stage).
-        Each add-on in ``addons`` is itself a build stage (--target). Both
-        ``build_args`` and ``addons`` are space-separated strings so they can be
-        looped over in shell directly.
+        The recipe of an image (context, Dockerfile, stages, build-args) is
+        looked up from its base tag by ``matrix.py image``.
 
     matrix.py image <tag>
         Resolve a per-image tag such as ``ubuntu-24.04-2.1.0`` (synthesized
@@ -99,7 +94,11 @@ def load_images():
 
 
 def cmd_all():
-    print(json.dumps(load_images(), separators=(",", ":")))
+    result = [
+        {"os": img["os"], "version": img["version"], "base_tag": img["base_tag"]}
+        for img in load_images()
+    ]
+    print(json.dumps(result, separators=(",", ":")))
 
 
 def cmd_publish_matrix(semver: str | None = None):
