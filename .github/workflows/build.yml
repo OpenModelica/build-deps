@@ -1,21 +1,37 @@
 name: Build, Release & Publish
 
-# Single pipeline so a release created here can trigger publishing in the SAME
-# run.
+# Single pipeline so a release created here can publish in the SAME run.
 #
-#   discover ─▶ build (all images, no push)
-#                 └─▶ release (tag only) ─▶ publish-ghcr + publish-nexus
-#                                             └─▶ cleanup (GHCR, no dry-run)
+#   pull request      discover ─▶ build (changed images only, no push)
+#   push main         discover ─▶ publish (build once, push to both registries)
+#                                   └─▶ cleanup (GHCR, no dry-run)
+#   push tag          discover ─▶ publish ─▶ release
+#
+# An image is only built when the hash of its recipe (build context,
+# Dockerfile, build-args and stage) differs from the
+# org.openmodelica.build-deps.hash label of the published image, so a change
+# to one Dockerfile does not rebuild every image. Unchanged images cost one
+# registry lookup; a release of one gets its immutable tag pointed at the
+# digest that is already published. No image is built more than once per run
+# either: the push to main goes straight to `publish`, which feeds both
+# registries from that single build — the pull request already proved the
+# build. A registry we cannot reach fails the job rather than being taken
+# for an image that needs rebuilding.
 #
 # Triggers:
-#   push main         Publishes every image with the moving tag (<os>-<version>).
-#   schedule          Weekly rolling rebuild — republishes the moving tags.
-#   push tag          Full release: GitHub Release + immutable semver tags for
-#                     all images. Tag must be of the form v<MAJOR>.<MINOR>.<PATCH>.
-#   workflow_dispatch Re-publish on demand. Leave the tag input empty to rebuild
-#                     all moving tags; pass a global tag (e.g. v2.1.0) to rebuild
-#                     all images with immutable tags; pass a single image tag
-#                     (e.g. ubuntu-24.04-2.1.0) to rebuild just that image.
+#   push main         Publishes every changed image with the moving tag
+#                     (<os>-<version>).
+#   schedule          Weekly rolling rebuild — republishes the moving tags of
+#                     ALL images, ignoring the hashes, so upstream base-image
+#                     and package updates land.
+#   push tag          Full release: immutable semver tags for all images, then
+#                     a GitHub Release. Tag must be of the form
+#                     v<MAJOR>.<MINOR>.<PATCH>.
+#   workflow_dispatch Re-publish on demand. Leave the tag input empty to
+#                     rebuild all moving tags; pass a global tag (e.g. v2.1.0)
+#                     to rebuild all images with immutable tags; pass a single
+#                     image tag (e.g. ubuntu-24.04-2.1.0) to rebuild just that
+#                     image.
 #
 # Cosign signing on GHCR happens only for releases (immutable tags): on a
 # v-tag push, and on workflow_dispatch re-publishes of a release unless the
@@ -39,6 +55,11 @@ on:
         description: 'Optional: version to (re)publish. Empty = rebuild all moving tags. Global tag (e.g. v2.1.0) = all images with immutable tags. Single image tag (e.g. ubuntu-24.04-2.1.0) = one image with immutable tag.'
         required: false
         default: ''
+      force:
+        description: 'Rebuild and push even when the published image already carries the current recipe hash.'
+        type: boolean
+        required: false
+        default: true
       sign:
         description: 'Cosign-sign the immutable tags on GHCR when re-publishing a release. Moving-tag-only publishes are never signed.'
         type: boolean
@@ -102,21 +123,51 @@ jobs:
               ;;
           esac
 
+  # Pull requests only: prove that the images the PR changes still build.
+  # A push to main does not build here — it builds in `publish`, once.
   build:
     name: Build ${{ matrix.image.os }}-${{ matrix.image.version }}
     needs: discover
+    if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: read
     strategy:
       fail-fast: false
       matrix:
         image: ${{ fromJson(needs.discover.outputs.matrix) }}
+    env:
+      # Only GHCR: a pull request from a fork has no Nexus credentials, and
+      # the two registries are published from the same build anyway.
+      REGISTRIES: ghcr.io/openmodelica/build-deps
+      TAG: ${{ matrix.image.base_tag }}
     steps:
       - name: Check out the repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Install dependencies
+        run: pip install -r .ci/requirements.txt
+
+      # Reading the hash label of the published image needs no write access,
+      # so this works for pull requests from forks too.
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Everything below is skipped when the published image already carries
+      # the recipe hash of this checkout.
+      - name: Does this image need building?
+        id: status
+        run: ./.ci/registry-status.sh
+
       # The Dockerfile tend to be huge, free up some space on the GitHub runners
       - name: Free up disk space
+        if: ${{ steps.status.outputs.build == 'true' }}
         uses: endersonmenezes/free-disk-space@2a22f8c59cae9cddae7194b33e6b92d023b2b4b8 # v4.0.0
         with:
           remove_android: "true"
@@ -124,21 +175,118 @@ jobs:
           remove_haskell: "true"
 
       - name: Set up Docker Buildx
+        if: ${{ steps.status.outputs.build == 'true' }}
         uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
 
       - name: Build base image and add-ons
-        env:
-          BASE_TAG: ${{ matrix.image.base_tag }}
-          CONTEXT: ${{ matrix.image.context }}
-          DOCKERFILE: ${{ matrix.image.dockerfile }}
-          TARGET: ${{ matrix.image.target }}
-          BUILD_ARGS: ${{ matrix.image.build_args }}
-          ADDONS: ${{ matrix.image.addons }}
+        if: ${{ steps.status.outputs.build == 'true' }}
         run: ./.ci/build.sh
+
+  # One build per image, pushed to both registries from that single build so
+  # they share a digest.
+  publish:
+    name: Publish ${{ matrix.image.tag }}
+    needs: discover
+    if: ${{ needs.discover.outputs.publish_matrix != '[]' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # needed for signing the images with GitHub OIDC Token
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ${{ fromJson(needs.discover.outputs.publish_matrix) }}
+    env:
+      REGISTRIES: ghcr.io/openmodelica/build-deps docker.openmodelica.org/build-deps
+      SIGN_REGISTRY: ghcr.io/openmodelica/build-deps
+      TAG: ${{ matrix.image.tag }}
+      # The weekly rebuild exists to pick up upstream base-image and package
+      # updates, which no recipe hash can see; a manual dispatch says what it
+      # wants through its own input.
+      FORCE: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.force)) && 'true' || 'false' }}
+      # Sign only releases: a v-tag push, or a workflow_dispatch re-publish
+      # unless its `sign` input is unchecked. Publishes without immutable
+      # tags (schedule, push to main, dispatch with an empty tag input)
+      # are never signed — publish.sh only signs immutable tags.
+      SIGN: ${{ (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.sign)) && 'true' || 'false' }}
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install dependencies
+        run: pip install -r .ci/requirements.txt
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Nexus Docker registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: docker.openmodelica.org
+          username: ${{ secrets.NEXUS_OPENMODELICABOT_USER }}
+          password: ${{ secrets.NEXUS_OPENMODELICABOT_PASSWORD }}
+
+      # Everything below is skipped when both registries already carry the
+      # recipe hash of this checkout under every tag this job would push.
+      - name: Does this image need building?
+        id: status
+        run: ./.ci/registry-status.sh
+
+      # The Dockerfile tend to be huge, free up some space on the GitHub runners
+      - name: Free up disk space
+        if: ${{ steps.status.outputs.build == 'true' }}
+        uses: endersonmenezes/free-disk-space@2a22f8c59cae9cddae7194b33e6b92d023b2b4b8 # v4.0.0
+        with:
+          remove_android: "true"
+          remove_dotnet: "true"
+          remove_haskell: "true"
+
+      - name: Set up Docker Buildx
+        if: ${{ steps.status.outputs.build == 'true' }}
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Install cosign
+        if: ${{ steps.status.outputs.build == 'true' }}
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Build, push and sign image (base + add-ons)
+        if: ${{ steps.status.outputs.build == 'true' }}
+        run: ./.ci/publish.sh
+
+      - name: Verify signatures
+        if: ${{ steps.status.outputs.build == 'true' && env.SIGN == 'true' }}
+        run: |
+          set -euo pipefail
+          eval "$(python .ci/matrix.py image "${TAG}")"
+          if [[ -z "${semver}" ]]; then
+            echo "Moving-tag-only publish — nothing was signed, skipping verification."
+            exit 0
+          fi
+          CERT_ID="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/build.yml@${GITHUB_REF}"
+          CERT_ISSUER="https://token.actions.githubusercontent.com"
+          # Signatures are per digest; verifying the immutable tags also
+          # covers the moving tags, which point at the same digests.
+          tags=("${base_tag}-${semver}")
+          for addon in ${addons}; do
+            tags+=("${base_tag}-${addon}-${semver}")
+          done
+          for t in "${tags[@]}"; do
+            echo "Verifying ${SIGN_REGISTRY}:${t}"
+            cosign verify \
+              --certificate-identity="${CERT_ID}" \
+              --certificate-oidc-issuer="${CERT_ISSUER}" \
+              "${SIGN_REGISTRY}:${t}"
+          done
 
   release:
     name: Create GitHub Release
-    needs: build
+    needs: publish
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     permissions:
@@ -164,147 +312,13 @@ jobs:
               --verify-tag
           fi
 
-  publish-ghcr:
-    name: Publish ${{ matrix.image.tag }} to GHCR
-    needs: [discover, build, release]
-    # Runs on: a release tag, a manual re-publish dispatch, or the weekly schedule.
-    # publish_matrix is [] for PR and branch-push runs, so those are excluded.
-    if: >-
-      ${{ always()
-        && needs.build.result == 'success'
-        && (needs.release.result == 'success' || needs.release.result == 'skipped')
-        && needs.discover.outputs.publish_matrix != '[]' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    permissions:
-      contents: read
-      packages: write
-      id-token: write # needed for signing the images with GitHub OIDC Token
-    strategy:
-      fail-fast: false
-      matrix:
-        image: ${{ fromJson(needs.discover.outputs.publish_matrix) }}
-    env:
-      REGISTRY: ghcr.io/openmodelica/build-deps
-      TAG: ${{ matrix.image.tag }}
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # The Dockerfile tend to be huge, free up some space on the GitHub runners
-      - name: Free up disk space
-        uses: endersonmenezes/free-disk-space@2a22f8c59cae9cddae7194b33e6b92d023b2b4b8 # v4.0.0
-        with:
-          remove_android: "true"
-          remove_dotnet: "true"
-          remove_haskell: "true"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-
-      - name: Install dependencies
-        run: pip install -r .ci/requirements.txt
-
-      - name: Install cosign
-        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Sign only releases: a v-tag push, or a workflow_dispatch re-publish
-      # unless its `sign` input is unchecked. Publishes without immutable
-      # tags (schedule, push to main, dispatch with an empty tag input)
-      # are never signed — publish.sh only signs immutable tags.
-      - name: Build, push and sign image (base + add-ons)
-        env:
-          SIGN: ${{ (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.sign)) && 'true' || 'false' }}
-        run: ./.ci/publish.sh
-
-      - name: Verify signatures
-        if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.sign) }}
-        run: |
-          set -euo pipefail
-          eval "$(python .ci/matrix.py image "${TAG}")"
-          if [[ -z "${semver}" ]]; then
-            echo "Moving-tag-only publish — nothing was signed, skipping verification."
-            exit 0
-          fi
-          CERT_ID="https://github.com/${GITHUB_REPOSITORY}/.github/workflows/build.yml@${GITHUB_REF}"
-          CERT_ISSUER="https://token.actions.githubusercontent.com"
-          # Signatures are per digest; verifying the immutable tags also
-          # covers the moving tags, which point at the same digests.
-          tags=("${base_tag}-${semver}")
-          for addon in ${addons}; do
-            tags+=("${base_tag}-${addon}-${semver}")
-          done
-          for t in "${tags[@]}"; do
-            echo "Verifying ${REGISTRY}:${t}"
-            cosign verify \
-              --certificate-identity="${CERT_ID}" \
-              --certificate-oidc-issuer="${CERT_ISSUER}" \
-              "${REGISTRY}:${t}"
-          done
-
   # Prune superseded digests and orphaned signatures right after publishing,
   # so re-pushed moving tags don't pile up as untagged versions on GHCR.
   cleanup:
     name: Cleanup container registry
-    needs: publish-ghcr
+    needs: publish
     permissions:
       packages: write
     uses: ./.github/workflows/cleanup.yml
     with:
       dry-run: false
-
-  publish-nexus:
-    name: Publish ${{ matrix.image.tag }} to Nexus
-    needs: [discover, build, release]
-    if: >-
-      ${{ always()
-        && needs.build.result == 'success'
-        && (needs.release.result == 'success' || needs.release.result == 'skipped')
-        && needs.discover.outputs.publish_matrix != '[]' }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        image: ${{ fromJson(needs.discover.outputs.publish_matrix) }}
-    env:
-      REGISTRY: docker.openmodelica.org/build-deps
-      TAG: ${{ matrix.image.tag }}
-    steps:
-      - name: Check out the repo
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      # The Dockerfile tend to be huge, free up some space on the GitHub runners
-      - name: Free up disk space
-        uses: endersonmenezes/free-disk-space@2a22f8c59cae9cddae7194b33e6b92d023b2b4b8 # v4.0.0
-        with:
-          remove_android: "true"
-          remove_dotnet: "true"
-          remove_haskell: "true"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
-
-      - name: Install dependencies
-        run: pip install -r .ci/requirements.txt
-
-      - name: Login to Nexus Docker registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          registry: docker.openmodelica.org
-          username: ${{ secrets.NEXUS_OPENMODELICABOT_USER }}
-          password: ${{ secrets.NEXUS_OPENMODELICABOT_PASSWORD }}
-
-      - name: Build and push image (base + add-ons)
-        env:
-          SIGN: "false"
-        run: ./.ci/publish.sh

@@ -58,8 +58,9 @@ for the whole repository.
    Its `context`/`dockerfile`/`target`/`build_args` are in
    [.ci/matrix.yml][ci-matrix].
 
-2. **Open a PR to `main`.** [build.yml][build-yml] builds
-   every image (no push). Confirm your image builds. Build it locally too —
+2. **Open a PR to `main`.** [build.yml][build-yml] builds every image whose
+   recipe the PR changes (no push); the rest are already published under the
+   same hash and are skipped. Confirm your image builds. Build it locally too —
    reuse the `context` / `dockerfile` / `target` / `build_args` from
    `.ci/matrix.yml`:
 
@@ -84,8 +85,13 @@ for the whole repository.
 
 5. **CI publishes automatically.** Pushing the tag runs the single
    [build.yml](./.github/workflows/build.yml) pipeline, which in one run:
-   builds the images, creates/updates the GitHub Release, then builds + pushes
-   the tagged image (base + add-ons) to GHCR (signed) and Nexus.
+   builds each image (base + add-ons) once and pushes it to GHCR (signed) and
+   Nexus, then creates/updates the GitHub Release.
+
+   An image whose recipe is already published is not rebuilt: the immutable
+   tag is added to the digest the moving tag already points at, so the release
+   is exactly the image CI has been using. Tick **force** on a
+   `workflow_dispatch` instead if you want a release built from scratch.
 
    Watch the Actions tab; when green the new tags are live.
 
@@ -102,6 +108,11 @@ Use the **workflow_dispatch** trigger on
   skipped).
 - **Pass a single image tag** (e.g. `ubuntu-24.04-2.1.0`) — re-publishes
   only that one image with its moving and immutable tags.
+
+The **force** checkbox (default: on) rebuilds and re-pushes even when the
+published image already carries the current recipe hash — which is what you
+want from a manual re-publish. Unchecking it turns the dispatch into a
+catch-up run that only touches images whose recipe changed.
 
 The **sign** checkbox (default: on) controls whether the re-published
 immutable tags are cosign-signed on GHCR. It only applies when immutable tags

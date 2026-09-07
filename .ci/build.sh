@@ -1,52 +1,52 @@
 #!/usr/bin/env bash
 #
-# Build one image (base + all its add-ons) without pushing.
+# Build one image (base + all its add-ons) without pushing, skipping the
+# stages the registry already has under the same recipe hash. Used by the
+# pull-request job: a PR that touches one Dockerfile only builds the images
+# that Dockerfile serves.
 #
-# Layers are written to the GitHub Actions cache (type=gha) so the
-# publish-ghcr and publish-nexus jobs can restore them via --cache-from
-# instead of rebuilding from scratch.
+# Layers are written to the GitHub Actions cache (type=gha) so a later build
+# of the same stage can restore them via --cache-from instead of rebuilding
+# from scratch.
 #
 # Required environment variables:
-#   BASE_TAG    Moving base tag, e.g. ubuntu-24.04
-#   CONTEXT     Docker build context path
-#   DOCKERFILE  Path to the Dockerfile
-#   TARGET      Build stage for the base image (empty = final stage)
-#   BUILD_ARGS  Space-separated KEY=VALUE build arguments
-#   ADDONS      Space-separated add-on stage names
+#   TAG         Moving base tag of the image, e.g. ubuntu-24.04
+#   REGISTRIES  Space-separated image repositories to compare hashes against
+#   FORCE       "true" to build every stage without asking the registries
 set -euo pipefail
 
-: "${BASE_TAG:?BASE_TAG is required}"
-: "${CONTEXT:?CONTEXT is required}"
-: "${DOCKERFILE:?DOCKERFILE is required}"
+: "${TAG:?TAG is required}"
+: "${REGISTRIES:?REGISTRIES is required}"
+FORCE="${FORCE:-false}"
+
+# shellcheck source=.ci/lib.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
+
+resolve_image "${TAG}"
 
 # Common build-args (e.g. DISTRO=ubuntu VERSION=24.04) apply to every stage.
 common_args=()
-for kv in ${BUILD_ARGS:-}; do
+for kv in ${build_args}; do
   common_args+=(--build-arg "${kv}")
 done
 
-# 1. Base image: the image's `target` stage (or the final stage).
-base_target_arg=()
-[ -n "${TARGET:-}" ] && base_target_arg=(--target "${TARGET}")
-echo "::group::Building base ${BASE_TAG}"
-docker buildx build \
-  --file "${DOCKERFILE}" \
-  "${common_args[@]}" "${base_target_arg[@]}" \
-  --cache-to "type=gha,mode=max,scope=${BASE_TAG}" \
-  --tag "local/build-deps:${BASE_TAG}" \
-  --load \
-  "${CONTEXT}"
-echo "::endgroup::"
-
-# 2. Add-ons: each is a --target stage in the same Dockerfile.
-for addon in ${ADDONS:-}; do
-  echo "::group::Building add-on ${addon}"
+# The base image is the image's `target` stage (or the final stage); each
+# add-on is a further stage of the same Dockerfile.
+while IFS='|' read -r stage moving immutable; do
+  if [ "${FORCE}" != "true" ] && ! stage_needs_build "${stage}" "${moving}" "${immutable}"; then
+    echo "Up to date: ${moving} — not building it"
+    continue
+  fi
+  target_arg=()
+  [ -n "${stage}" ] && target_arg=(--target "${stage}")
+  echo "::group::Building ${moving}"
   docker buildx build \
-    --file "${DOCKERFILE}" \
-    "${common_args[@]}" --target "${addon}" \
-    --cache-to "type=gha,mode=max,scope=${BASE_TAG}-${addon}" \
-    --tag "local/build-deps:${BASE_TAG}-${addon}" \
+    --file "${dockerfile}" \
+    "${common_args[@]}" "${target_arg[@]}" \
+    --label "${HASH_LABEL}=$(context_hash "${stage}")" \
+    --cache-to "type=gha,mode=max,scope=${moving}" \
+    --tag "local/build-deps:${moving}" \
     --load \
-    "${CONTEXT}"
+    "${context}"
   echo "::endgroup::"
-done
+done < <(image_stage_tags)

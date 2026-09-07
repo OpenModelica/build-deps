@@ -30,8 +30,10 @@ main
 └── .ci/
     ├── matrix.yml          # source of truth: which images exist
     ├── matrix.py           # matrix.yml -> CI matrix / tag lookup
+    ├── lib.sh              # recipe hash + registry hash label
+    ├── registry-status.sh  # does this image need building at all?
     ├── build.sh            # build one image (base + add-ons), write GHA cache
-    └── publish.sh          # restore GHA cache, push + sign one image
+    └── publish.sh          # push + sign one image to every registry
 ```
 
 - **Base image** — one per OS/OS-version. Contains everything needed to build
@@ -168,21 +170,59 @@ that a release it creates can publish in the **same** run (a release created
 with `GITHUB_TOKEN` cannot trigger a separate workflow):
 
 ```text
-discover ─▶ build (all images, no push)
-              └─▶ release (tag only) ─▶ publish-ghcr + publish-nexus
+pull request  discover ─▶ build (changed images only, no push)
+push main     discover ─▶ publish ─▶ cleanup
+push tag      discover ─▶ publish ─▶ release
 ```
 
-- **build** — on every push/PR to `main` (and as the gate before release),
-  builds every base + add-on declared in `.ci/matrix.yml` (no push).
-- **release** — on an repo-wide release tag, creates/updates the GitHub Release.
-- **publish-ghcr / publish-nexus** — build and push the images to GHCR and
-  Nexus. Moving tags (`<os>-<version>`) are updated on every
-  push to `main`, the weekly schedule, and `workflow_dispatch`. Immutable tags
-  (`<os>-<version>-<semver>`) are pushed on a release tag, and can also be republished via `workflow_dispatch` when a global `v<semver>` is supplied.
+- **build** — on a pull request, builds the base + add-ons whose recipe the PR
+  changed (no push). Unchanged images cost one registry lookup.
+- **publish** — builds each image **once** and pushes it to GHCR and Nexus
+  from that single build, so both registries share a digest. Moving tags
+  (`<os>-<version>`) are updated on every push to `main`, the weekly schedule,
+  and `workflow_dispatch`. Immutable tags (`<os>-<version>-<semver>`) are
+  pushed on a release tag, and can also be republished via
+  `workflow_dispatch` when a global `v<semver>` is supplied.
   On GHCR the immutable tags are **cosign-signed** — only on releases (and
   optionally on `workflow_dispatch` re-publishes of a release); the moving tag
   of a released image points at the same digest, so it verifies with the same
   signature.
+- **release** — on a repo-wide release tag, creates/updates the GitHub Release
+  once every image has been published.
+
+### Only building what changed
+
+Every published image carries the hash of the recipe it was built from as the
+`org.openmodelica.build-deps.hash` label — the same label
+[apt-build][apt-build]'s Jenkinsfile uses for its own build-deps images. The
+hash covers the build context, the Dockerfile, the build-args and the stage
+that is built, so it changes exactly when the image would come out different.
+
+Before building anything, a job reads that label from the registry and skips
+the image when every tag it would push already matches, so a change to one
+Dockerfile does not rebuild the others. The granularity is the whole build
+context, so editing `apt/Dockerfile` rebuilds every Ubuntu and Debian image —
+they are all built from it.
+
+Within a run no image is built more than once: a push to `main` skips the
+`build` job (the pull request already proved the build) and goes straight to
+`publish`, which pushes to both registries from a single `docker buildx
+build`.
+
+A **release** of an image whose recipe is already published is not rebuilt
+either: its immutable tag is added to the digest that the moving tag already
+points at (`docker buildx imagetools create --prefer-index=false`, a
+digest-preserving carbon copy). The release is then exactly the image CI has
+been using, and one cosign signature still covers both tags.
+
+The hash cannot see upstream changes (a new `ubuntu:24.04` base image, updated
+distro packages), so two triggers ignore it and rebuild unconditionally: the
+weekly schedule, and a `workflow_dispatch` with its **force** checkbox left on.
+
+A registry that answers "no such tag" means the image has to be built. A
+registry we cannot reach at all (after three attempts) fails the job instead:
+an image we cannot see is not an image we may assume is up to date, and
+rebuilding it blindly would paper over a broken registry.
 
 A second workflow, [cleanup.yml](./.github/workflows/cleanup.yml), deletes
 stale versions of the GHCR package: untagged digests left behind by re-pushed
@@ -209,6 +249,7 @@ See [LICENSE.md][license-md].
 [openmodelica]: https://github.com/OpenModelica/OpenModelica
 [jenkins]: https://test.openmodelica.org/jenkins/
 [matrix-yml]: ./.ci/matrix.yml
+[apt-build]: https://github.com/OpenModelica/apt-build
 [apt-dockerfile]: ./apt/Dockerfile
 [apk-dockerfile]: ./apk/Dockerfile
 [rpm-dockerfile]: ./rpm/Dockerfile
