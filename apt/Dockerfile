@@ -85,18 +85,26 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-# Use permalink for doc/UsersGuide/source/requirements.txt to keep builds
-# deterministic.
+# breathe .. sphinxcontrib-programoutput are the User's Guide's own
+# doc/UsersGuide/source/requirements.txt, copied instead of fetched from a
+# permalink so it needs no re-pinning here; keep the two in sync.
+# fmpy, junit_xml, simplejson and svgwrite are for the test suite, lxml for the
+# OMSimulator Python bindings.
 RUN pip install --no-cache-dir \
+    breathe \
+    gitpython \
+    natsort \
+    "ompython >= 4.0" \
+    pybtex \
+    PyGithub \
+    sphinx \
+    sphinxcontrib-bibtex \
+    sphinxcontrib-programoutput \
     fmpy==0.3.29 \
     junit_xml \
     lxml \
-    ompython==3.6.0 \
-    PyGithub \
     simplejson \
-    svgwrite \
-  && pip install --no-cache-dir -r \
-    https://raw.githubusercontent.com/OpenModelica/OpenModelica/9c0dc9a8ab50ba652109584cb3fecaef86640b66/doc/UsersGuide/source/requirements.txt
+    svgwrite
 
 # ── rustdeps: Dependencies for the Rust build (Ubuntu only) ───────────────────
 # Built once and copied into `rust`. Not used for Debian images.
