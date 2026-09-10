@@ -10,7 +10,11 @@
 #   full     the published BASE image: base + User's Guide toolchain + Qt + python
 #   cmake-4  ADD-ON: full + CMake 4 from the official Kitware release
 #   debug    ADD-ON: full + GDB, Valgrind, and other debugging tools
-#   rust     ADD-ON: full + Rust toolchain + Emscripten + Qt for Wasm (Ubuntu only)
+#   rust     ADD-ON: full + Rust toolchain + host Qt kit (Ubuntu only)
+#   rust-qt-wasm        ADD-ON: rust + Emscripten + Qt for WebAssembly
+#   rust-qt-win-x86_64  ADD-ON: rust + Qt for x86_64-pc-windows-msvc
+#   rust-qt-win-aarch64 ADD-ON: rust + Qt for aarch64-pc-windows-msvc
+#   rust-qt-mac         ADD-ON: rust + Qt for macOS (universal, both arches)
 #   omsimulator ADD-ON: full + X11 dev libs for the OMSimulator build
 #
 # Build the base image (the `full` target):
@@ -27,6 +31,13 @@
 
 ARG DISTRO=ubuntu
 ARG VERSION=26.04
+# Re-declare these with a bare `ARG <name>` in a stage to use them there; only a
+# global default reaches a stage that way, never a parent stage's.
+ARG QT_VERSION=6.10.2
+# The desktop kits take the same modules; the wasm one has its own list. No
+# qtpdf: nothing asks for a Pdf component (the QPdfWriter uses are QtGui), and
+# it does not resolve for win64_msvc2022_arm64_cross_compiled.
+ARG QT_DESKTOP_MODULES="qtwebchannel qtpositioning qthttpserver qtquick3d qtshadertools"
 
 # ── base: OpenModelica build dependencies only ────────────────────────────────
 FROM ${DISTRO}:${VERSION} AS base
@@ -111,7 +122,7 @@ RUN pip install --no-cache-dir \
 # Built once and copied into `rust`. Not used for Debian images.
 FROM base AS rustdeps
 RUN apt-get update \
-  && apt-get install --no-install-recommends -qy python3-pip python3-venv curl \
+  && apt-get install --no-install-recommends -qy curl \
   && rm -rf /var/lib/apt/lists/*
 
 # Specific versions needed for caching Rust crates
@@ -164,24 +175,54 @@ RUN curl https://sh.rustup.rs | bash -s -- -y \
            "${CARGO_TARGET_DIR:-/nonexistent}" && \
     mkdir -p "$CARGO_HOME/registry" && chmod ugo+rwx -R /opt/rust /opt/cargo-xwin
 
-RUN export DEBIAN_FRONTEND=noninteractive && \
-    apt-get update && \
-    apt-get install -y --no-install-recommends \
-        git python3 python3-pip python3-venv ca-certificates xz-utils && \
-    # --- Emscripten 4.0.7 (required by Qt 6.10.x; Ubuntu has 3.1.69) ---
-    git clone --depth 1 https://github.com/emscripten-core/emsdk.git /opt/emsdk; \
-    cd /opt/emsdk && \
-    ./emsdk install 4.0.7 && \
-    ./emsdk activate 4.0.7 && \
-    # --- Qt 6.10.2: WebAssembly (single-threaded) + matching 26.04 host ---
-    python3 -m pip install --no-cache-dir --break-system-packages aqtinstall && \
-    aqt install-qt linux desktop 6.10.2 linux_gcc_64 -m qtwebchannel qtpositioning qtpdf qthttpserver qtquick3d qtshadertools -O /opt/Qt && \
-    aqt install-qt all_os wasm 6.10.2 wasm_singlethread -m qt5compat qtquick3d qtshadertools -O /opt/Qt && \
-    aqt install-qt windows desktop 6.10.2 win64_msvc2022_64 -m qtwebchannel qtpositioning qtpdf qthttpserver qtquick3d qtshadertools -O /opt/Qt && \
-    rm -rf /var/lib/apt/lists/* && \
-    chmod +x /opt/Qt/6.10.2/wasm_singlethread/bin/qt-cmake \
-         /opt/Qt/6.10.2/wasm_singlethread/bin/qt-cmake-create \
-         /opt/Qt/6.10.2/wasm_singlethread/bin/qt-configure-module
+# ── emsdk: Emscripten, for the Qt-for-WebAssembly add-on ─────────────────────
+# 4.0.7 is what Qt 6.10.x wants; Ubuntu has 3.1.69.
+FROM base AS emsdk
+RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
+  && apt-get install -y --no-install-recommends git python3 ca-certificates xz-utils \
+  && git clone --depth 1 https://github.com/emscripten-core/emsdk.git /opt/emsdk \
+  && cd /opt/emsdk \
+  && ./emsdk install 4.0.7 \
+  && ./emsdk activate 4.0.7 \
+  && rm -rf /var/lib/apt/lists/*
+
+# ── qt-*: one Qt kit per stage, each copied into its own add-on ───────────────
+# Only the host kit belongs in `rust`; a cross kit is 1-2 GB that a stage
+# building for another target has no use for.
+FROM base AS qtdeps
+RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
+  && apt-get install -y --no-install-recommends python3 python3-pip ca-certificates \
+  && python3 -m pip install --no-cache-dir --break-system-packages aqtinstall \
+  && rm -rf /var/lib/apt/lists/*
+
+FROM qtdeps AS qt-host
+ARG QT_VERSION
+ARG QT_DESKTOP_MODULES
+RUN aqt install-qt linux desktop ${QT_VERSION} linux_gcc_64 -m ${QT_DESKTOP_MODULES} -O /opt/Qt
+
+FROM qtdeps AS qt-wasm
+ARG QT_VERSION
+RUN aqt install-qt all_os wasm ${QT_VERSION} wasm_singlethread -m qt5compat qtquick3d qtshadertools -O /opt/Qt \
+  && chmod +x /opt/Qt/${QT_VERSION}/wasm_singlethread/bin/qt-cmake \
+              /opt/Qt/${QT_VERSION}/wasm_singlethread/bin/qt-cmake-create \
+              /opt/Qt/${QT_VERSION}/wasm_singlethread/bin/qt-configure-module
+
+FROM qtdeps AS qt-win-x86_64
+ARG QT_VERSION
+ARG QT_DESKTOP_MODULES
+RUN aqt install-qt windows desktop ${QT_VERSION} win64_msvc2022_64 -m ${QT_DESKTOP_MODULES} -O /opt/Qt
+
+FROM qtdeps AS qt-win-aarch64
+ARG QT_VERSION
+ARG QT_DESKTOP_MODULES
+RUN aqt install-qt windows desktop ${QT_VERSION} win64_msvc2022_arm64_cross_compiled -m ${QT_DESKTOP_MODULES} -O /opt/Qt
+
+# Qt ships one macOS desktop kit, and it is universal (x86_64 + arm64), so both
+# macOS targets use this one image.
+FROM qtdeps AS qt-mac
+ARG QT_VERSION
+ARG QT_DESKTOP_MODULES
+RUN aqt install-qt mac desktop ${QT_VERSION} clang_64 -m ${QT_DESKTOP_MODULES} -O /opt/Qt
 
 # ── full: the published base image ────────────────────────────────────────────
 #   - tools to build the User's Guide (common to all versions)
@@ -343,23 +384,24 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# ── rust add-on: full + Rust toolchain + Emscripten + Qt for Wasm ─────────────
-# Ubuntu only (uses flang and Ubuntu-specific Qt Wasm build).
-# Built with `--target rust`.
+# ── rust add-on: full + Rust toolchain + the host Qt kit ──────────────────────
+# Ubuntu only (uses flang). Built with `--target rust`. The cross-compilers stay
+# here -- cargo-xwin and zig build the C libraries for the Windows and macOS
+# targets inside this image -- but a cross *Qt* kit does not: those are the
+# rust-qt-* add-ons below.
 FROM full AS rust
 LABEL org.opencontainers.image.description="OpenModelica build-deps (Ubuntu) for the Rust targets"
 
-ENV EMSDK=/opt/emsdk \
-  QT_HOST_PATH=/opt/Qt/6.10.2/gcc_64 \
+ARG QT_VERSION
+ENV QT_HOST_PATH=/opt/Qt/${QT_VERSION}/gcc_64 \
   RUSTUP_HOME=/opt/rust/rustup \
   CARGO_HOME=/opt/rust/cargo \
   XWIN_CACHE_DIR=/opt/cargo-xwin \
   CARGO_ZIGBUILD_CACHE_DIR=/opt/cargo-zigbuild \
   ZIG_GLOBAL_CACHE_DIR=/opt/zig-cache \
-  PATH=/opt/emsdk:/opt/emsdk/upstream/emscripten:/opt/Qt/6.10.2/wasm_singlethread/bin:/opt/rust/cargo/bin:$PATH
+  PATH=/opt/rust/cargo/bin:$PATH
 
-COPY --from=rustdeps /opt/emsdk /opt/emsdk
-COPY --from=rustdeps /opt/Qt /opt/Qt
+COPY --from=qt-host /opt/Qt /opt/Qt
 COPY --from=rustdeps /opt/rust /opt/rust
 COPY --from=rustdeps /opt/cargo-xwin /opt/cargo-xwin
 
@@ -396,6 +438,32 @@ RUN export CARGO_HOME=/tmp/zigprime-cargo \
      done \
   && cd / && rm -rf /tmp/zigprime /tmp/zigprime-cargo \
   && chmod ugo+rwx -R /opt/zig-cache /opt/cargo-zigbuild
+
+# ── rust-qt-* add-ons: rust + one cross Qt kit ────────────────────────────────
+# One per target the GUI clients are cross-compiled for. Each carries the host
+# kit from `rust` (QT_HOST_PATH, which every cross Qt build needs) plus its own
+# target kit, and nothing for the other targets.
+
+FROM rust AS rust-qt-wasm
+LABEL org.opencontainers.image.description="OpenModelica build-deps for the Qt WebAssembly target"
+ARG QT_VERSION
+ENV EMSDK=/opt/emsdk \
+  PATH=/opt/emsdk:/opt/emsdk/upstream/emscripten:/opt/Qt/${QT_VERSION}/wasm_singlethread/bin:$PATH
+COPY --from=emsdk /opt/emsdk /opt/emsdk
+COPY --from=qt-wasm /opt/Qt /opt/Qt
+
+FROM rust AS rust-qt-win-x86_64
+LABEL org.opencontainers.image.description="OpenModelica build-deps for the Qt x86_64-pc-windows-msvc target"
+COPY --from=qt-win-x86_64 /opt/Qt /opt/Qt
+
+FROM rust AS rust-qt-win-aarch64
+LABEL org.opencontainers.image.description="OpenModelica build-deps for the Qt aarch64-pc-windows-msvc target"
+COPY --from=qt-win-aarch64 /opt/Qt /opt/Qt
+
+# Universal (x86_64 + arm64), so it serves both macOS targets.
+FROM rust AS rust-qt-mac
+LABEL org.opencontainers.image.description="OpenModelica build-deps for the Qt macOS targets"
+COPY --from=qt-mac /opt/Qt /opt/Qt
 
 # ── OMSimulator add-on: full + X11 dev libs OMSimulator's GUI links against ───
 # Mirrors OMSimulator/.CI/cache/Dockerfile. The AddressSanitizer runtime is not

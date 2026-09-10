@@ -38,6 +38,10 @@ images:
       VERSION: "26.04"
     addons:
       - rust
+      - rust-qt-wasm
+      - rust-qt-win-x86_64
+      - rust-qt-win-aarch64
+      - rust-qt-mac
       - debug
       - omsimulator
 
