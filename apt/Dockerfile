@@ -33,7 +33,7 @@ ARG DISTRO=ubuntu
 ARG VERSION=26.04
 # Re-declare these with a bare `ARG <name>` in a stage to use them there; only a
 # global default reaches a stage that way, never a parent stage's.
-ARG QT_VERSION=6.10.2
+ARG QT_VERSION=6.11.2
 # The desktop kits take the same modules; the wasm one has its own list. No
 # qtpdf: nothing asks for a Pdf component (the QPdfWriter uses are QtGui), and
 # it does not resolve for win64_msvc2022_arm64_cross_compiled.
@@ -176,7 +176,8 @@ RUN curl https://sh.rustup.rs | bash -s -- -y \
     mkdir -p "$CARGO_HOME/registry" && chmod ugo+rwx -R /opt/rust /opt/cargo-xwin
 
 # ── emsdk: Emscripten, for the Qt-for-WebAssembly add-on ─────────────────────
-# 4.0.7 is what Qt 6.10.x wants; Ubuntu has 3.1.69.
+# Each Qt minor targets one Emscripten version; 6.11.x wants 4.0.7, as 6.10.x
+# did. Ubuntu has 3.1.69.
 FROM base AS emsdk
 RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
   && apt-get install -y --no-install-recommends git python3 ca-certificates xz-utils \
@@ -190,9 +191,13 @@ RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
 # Only the host kit belongs in `rust`; a cross kit is 1-2 GB that a stage
 # building for another target has no use for.
 FROM base AS qtdeps
+# Released aqtinstall is 3.3.0, which cannot fetch the Updates.xml checksum from
+# download.qt.io and so does not see the Qt 6.11 Windows kits at all. Swappable
+# for aqtinstall>=3.4.0 once that releases.
+ARG AQTINSTALL="aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@16db45a70b5905ad596941b223469bc86a56901e"
 RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
-  && apt-get install -y --no-install-recommends python3 python3-pip ca-certificates \
-  && python3 -m pip install --no-cache-dir --break-system-packages aqtinstall \
+  && apt-get install -y --no-install-recommends python3 python3-pip ca-certificates git \
+  && python3 -m pip install --no-cache-dir --break-system-packages "${AQTINSTALL}" \
   && rm -rf /var/lib/apt/lists/*
 
 FROM qtdeps AS qt-host
