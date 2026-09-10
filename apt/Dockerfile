@@ -72,8 +72,9 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
 
 # CI mounts fresh named volumes under /cache; Docker seeds an empty volume with
 # the mount point's image permissions, so create them world-writable for the
-# non-root Jenkins uid (emscripten/sccache/runtest/omlibrary caches).
+# non-root Jenkins uid (emscripten/sccache/runtest/omlibrary/thirdparty caches).
 RUN mkdir -p /cache/emscripten /cache/sccache /cache/runtest /cache/omlibrary \
+             /cache/thirdparty \
   && chmod -R 0777 /cache
 
 # ── venv: Python tooling, isolated so it caches independently ─────────────────
@@ -114,10 +115,10 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Specific versions needed for caching Rust crates
-ARG WASM_BINDGEN_VERSION="0.2.125"
 ARG RUST_NIGHTLY="nightly-2026-05-31"
 # Upstream binaryen: the crates.io wasm-opt is stuck at binaryen 116 and Ubuntu's
-# apt build is 120; wasm-bindgen is newer and emits newer opcodes.
+# apt build is 120; the wasm-bindgen OpenModelica builds in-tree is newer and
+# emits newer opcodes.
 ARG BINARYEN_VERSION="version_130"
 ARG BINARYEN_SHA256="0a18362361ad05465118cd8eeb72edaeec89de6894bc283576ef4e07aa3babcc"
 # 0.23.4 passes a `-Wl,<path>` input file to zig cc positionally (rust-cross/
@@ -145,7 +146,6 @@ RUN curl https://sh.rustup.rs | bash -s -- -y \
     . "$CARGO_HOME/env" && \
     which cargo && cargo --version && \
     rustup component add rustc-codegen-cranelift-preview clippy rustfmt rust-src && \
-    cargo install wasm-bindgen-cli --version "${WASM_BINDGEN_VERSION}" && \
     cargo install sccache --locked && \
     cargo install cargo-nextest --locked && \
     curl -sSfL "https://github.com/WebAssembly/binaryen/releases/download/${BINARYEN_VERSION}/binaryen-${BINARYEN_VERSION}-x86_64-linux.tar.gz" -o /tmp/binaryen.tar.gz && \
