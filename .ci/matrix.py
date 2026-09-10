@@ -156,6 +156,87 @@ def cmd_image(tag: str):
     )
 
 
+def _dockerfile_stages(path):
+    """Stages of a Dockerfile as (name, instructions, dependencies), in file
+    order, plus the global ARG lines preceding the first FROM.
+
+    Docker strips comment lines before joining continuations, so they are
+    dropped first; a bare `#` line inside a RUN is a comment, not shell input.
+    """
+    logical = []
+    pending = ""
+    for raw in open(path, encoding="utf-8").read().split("\n"):
+        if raw.lstrip().startswith("#"):
+            continue
+        pending += raw
+        if pending.rstrip().endswith("\\"):
+            pending = pending.rstrip()[:-1]
+            continue
+        if pending.strip():
+            logical.append(" ".join(pending.split()))
+        pending = ""
+    if pending.strip():
+        logical.append(" ".join(pending.split()))
+
+    globals_, stages, current = [], [], None
+    for line in logical:
+        from_match = re.match(
+            r"FROM\s+(?:--\S+\s+)*(\S+)(?:\s+AS\s+(\S+))?$", line, re.IGNORECASE
+        )
+        if from_match:
+            base = from_match.group(1)
+            name = (from_match.group(2) or f"<stage{len(stages)}>").lower()
+            current = {"name": name, "lines": [line], "deps": {base.lower()}}
+            stages.append(current)
+            continue
+        if current is None:
+            if re.match(r"ARG\s", line, re.IGNORECASE):
+                globals_.append(line)
+            continue
+        current["lines"].append(line)
+        current["deps"].update(m.lower() for m in re.findall(r"--from=(\S+)", line))
+        current["deps"].update(
+            m.lower() for m in re.findall(r"--mount=\S*?from=([A-Za-z0-9_.-]+)", line)
+        )
+    return globals_, stages
+
+
+def cmd_recipe(dockerfile: str, target: str):
+    """The instructions building `target` would run, and nothing else.
+
+    Everything reachable from the target stage through FROM and --from=, so an
+    edit to one stage only invalidates that stage and its descendants instead of
+    every image the Dockerfile serves.
+    """
+    globals_, stages = _dockerfile_stages(dockerfile)
+    by_name = {stage["name"]: stage for stage in stages}
+    target = target.lower()
+    if target not in by_name:
+        # No such stage: the target is the last stage (docker's default).
+        if target:
+            sys.exit(
+                f"error: {dockerfile} has no stage '{target}'. "
+                f"Stages: {', '.join(s['name'] for s in stages)}"
+            )
+        target = stages[-1]["name"]
+
+    needed, queue = set(), [target]
+    while queue:
+        name = queue.pop()
+        if name in needed:
+            continue
+        needed.add(name)
+        queue.extend(dep for dep in by_name[name]["deps"] if dep in by_name)
+
+    print(f"target={target}")
+    for line in globals_:
+        print(line)
+    for stage in stages:
+        if stage["name"] in needed:
+            print(f"# stage {stage['name']}")
+            print("\n".join(stage["lines"]))
+
+
 def main(argv):
     if len(argv) >= 2 and argv[1] == "all":
         cmd_all()
@@ -163,8 +244,13 @@ def main(argv):
         cmd_image(argv[2])
     elif len(argv) >= 2 and argv[1] == "publish-matrix":
         cmd_publish_matrix(argv[2] if len(argv) >= 3 else None)
+    elif len(argv) >= 4 and argv[1] == "recipe":
+        cmd_recipe(argv[2], argv[3])
     else:
-        sys.exit(f"usage: {argv[0]} all | image <tag> | publish-matrix [<semver>]")
+        sys.exit(
+            f"usage: {argv[0]} all | image <tag> | publish-matrix [<semver>] "
+            f"| recipe <dockerfile> <stage>"
+        )
 
 
 if __name__ == "__main__":
