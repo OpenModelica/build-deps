@@ -12,8 +12,9 @@
 # immutable tag is pushed alongside it — or, when the moving tag already holds
 # exactly this recipe, added to the digest that is already published. Each
 # add-on is a build STAGE (--target) in the same Dockerfile and follows the
-# same moving/immutable pattern; shared layers come from the build cache, so
-# the base is effectively built only once.
+# same moving/immutable pattern. An add-on is built on top of the image its
+# parent stage was published as, pinned by digest, so the parent's stages are
+# never re-run and the add-on provably extends the image it says it does.
 #
 # Required environment variables:
 #   REGISTRIES     Space-separated image repositories, e.g.
@@ -104,11 +105,19 @@ done
 
 # The base image is the image's `target` stage (or the final stage); each
 # add-on is a further stage of the same Dockerfile.
+# Each add-on is built on the image its parent stage was just published as, so
+# it inherits that exact digest rather than re-running the parent's
+# instructions; see parent_context_args.
 while IFS='|' read -r stage moving immutable; do
   target_arg=()
   [ -n "${stage}" ] && target_arg=(--target "${stage}")
+  # Command substitution, not a process substitution: parent_context_args exits
+  # non-zero when it cannot resolve the parent, and that has to end the run.
+  parent_args=()
+  parent_out=$(parent_context_args "${stage}") || exit 1
+  [ -n "${parent_out}" ] && mapfile -t parent_args <<<"${parent_out}"
   publish_stage "${stage}" "${moving}" "${immutable}" \
-    "${common_args[@]}" "${target_arg[@]}"
+    "${common_args[@]}" "${target_arg[@]}" "${parent_args[@]}"
 done < <(image_stage_tags)
 
 # Sign the immutable tags (GHCR / cosign keyless). Signing is per digest, so

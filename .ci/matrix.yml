@@ -10,7 +10,10 @@
 #   build_args  map of --build-arg values, e.g. the version (default: none)
 #   target      build stage for the BASE image (default: final stage)
 #   addons      list of add-ons. Each add-on is a build STAGE (--target) in the
-#               image's own Dockerfile (default: none)
+#               image's own Dockerfile (default: none). Built in this order,
+#               after the base, and each one is built on top of the image its
+#               parent stage published -- so an add-on whose parent is another
+#               add-on has to be listed after it.
 # Ubuntu and Debian share apt/Dockerfile and differ only by DISTRO and VERSION;
 # the base is the `full` stage and add-ons such as `cmake-4` are extra stages.
 #
