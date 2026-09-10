@@ -77,7 +77,7 @@ OpenModelica release needs a frozen environment it pins the **immutable** tag.
 
 | OS / version            | Base tag        | Add-ons                           | Dockerfile       |
 | ----------------------- | --------------- | --------------------------------- | ---------------- |
-| Ubuntu 26.04 (Resolute) | `ubuntu-26.04`  | `rust`, `debug`, `omsimulator`    | `apt/Dockerfile` |
+| Ubuntu 26.04 (Resolute) | `ubuntu-26.04`  | `rust`, `rust-qt-wasm`, `rust-qt-win-x86_64`, `rust-qt-win-aarch64`, `rust-qt-mac`, `debug`, `omsimulator` | `apt/Dockerfile` |
 | Ubuntu 24.04 (Noble)    | `ubuntu-24.04`  | `cmake-4`, `debug`, `omsimulator` | `apt/Dockerfile` |
 | Ubuntu 22.04 (Jammy)    | `ubuntu-22.04`  | `debug`, `omsimulator`            | `apt/Dockerfile` |
 | Debian 13 (Trixie)      | `debian-13`     | `cmake-4`, `debug`                | `apt/Dockerfile` |
