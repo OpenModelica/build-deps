@@ -24,17 +24,18 @@ resolve_image() {
   eval "$(python3 "${LIB_DIR}/matrix.py" image "$1")"
 }
 
-# Hash of everything that goes into one image: the build context, the
-# Dockerfile, the build-args and the stage that is built. Whole-context
-# granularity means an edit to apt/Dockerfile rebuilds every Ubuntu and
-# Debian image, which is what we want as long as one Dockerfile serves them
-# all.
+# Hash of everything that goes into one image: the build-args, the stage that is
+# built, the instructions building that stage would actually run, and the rest of
+# the build context. `matrix.py recipe` reduces the Dockerfile to the target's
+# stage closure, so editing one stage invalidates that stage and its descendants
+# rather than every image the Dockerfile serves.
 context_hash() {
   local stage="$1"
   {
     echo "stage=${stage}"
     for kv in ${build_args}; do echo "build_arg=${kv}"; done | LC_ALL=C sort
-    { find "${context}" -type f -print; echo "${dockerfile}"; } |
+    python3 "${LIB_DIR}/matrix.py" recipe "${dockerfile}" "${stage}"
+    find "${context}" -type f ! -path "${dockerfile}" -print |
       LC_ALL=C sort -u | xargs -r sha256sum
   } | sha256sum | cut -c1-16
 }

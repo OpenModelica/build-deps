@@ -195,14 +195,16 @@ push tag      discover ─▶ publish ─▶ release
 Every published image carries the hash of the recipe it was built from as the
 `org.openmodelica.build-deps.hash` label — the same label
 [apt-build][apt-build]'s Jenkinsfile uses for its own build-deps images. The
-hash covers the build context, the Dockerfile, the build-args and the stage
-that is built, so it changes exactly when the image would come out different.
+hash covers the build-args, the stage that is built, the instructions building
+that stage would run, and the rest of the build context, so it changes exactly
+when the image would come out different.
 
 Before building anything, a job reads that label from the registry and skips
 the image when every tag it would push already matches, so a change to one
-Dockerfile does not rebuild the others. The granularity is the whole build
-context, so editing `apt/Dockerfile` rebuilds every Ubuntu and Debian image —
-they are all built from it.
+Dockerfile does not rebuild the others. Within a Dockerfile the granularity is
+the target's stage closure — everything reachable from it through `FROM` and
+`--from=` — so editing one stage rebuilds that stage and its descendants, not
+every image the Dockerfile serves.
 
 Within a run no image is built more than once: a push to `main` skips the
 `build` job (the pull request already proved the build) and goes straight to
