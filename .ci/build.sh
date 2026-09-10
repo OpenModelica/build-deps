@@ -32,6 +32,9 @@ done
 
 # The base image is the image's `target` stage (or the final stage); each
 # add-on is a further stage of the same Dockerfile.
+# Stages built in this run, so an add-on whose parent was just built reuses it
+# from the local cache rather than the registry.
+built_here=" "
 while IFS='|' read -r stage moving immutable; do
   if [ "${FORCE}" != "true" ] && ! stage_needs_build "${stage}" "${moving}" "${immutable}"; then
     echo "Up to date: ${moving} — not building it"
@@ -39,14 +42,23 @@ while IFS='|' read -r stage moving immutable; do
   fi
   target_arg=()
   [ -n "${stage}" ] && target_arg=(--target "${stage}")
+  # A parent that was skipped as up to date is published and was not built
+  # here, so build on that image instead of re-running its instructions.
+  parent_args=()
+  parent=$(python3 "${LIB_DIR}/matrix.py" parent "${dockerfile}" "${stage}")
+  if [ -n "${parent}" ] && [[ "${built_here}" != *" ${parent} "* ]]; then
+    parent_out=$(parent_context_args "${stage}") || exit 1
+    [ -n "${parent_out}" ] && mapfile -t parent_args <<<"${parent_out}"
+  fi
   echo "::group::Building ${moving}"
   docker buildx build \
     --file "${dockerfile}" \
-    "${common_args[@]}" "${target_arg[@]}" \
+    "${common_args[@]}" "${target_arg[@]}" "${parent_args[@]}" \
     --label "${HASH_LABEL}=$(context_hash "${stage}")" \
     --cache-to "type=gha,mode=max,scope=${moving}" \
     --tag "local/build-deps:${moving}" \
     --load \
     "${context}"
   echo "::endgroup::"
+  built_here="${built_here}${stage} "
 done < <(image_stage_tags)

@@ -184,9 +184,9 @@ def _dockerfile_stages(path):
             r"FROM\s+(?:--\S+\s+)*(\S+)(?:\s+AS\s+(\S+))?$", line, re.IGNORECASE
         )
         if from_match:
-            base = from_match.group(1)
+            base = from_match.group(1).lower()
             name = (from_match.group(2) or f"<stage{len(stages)}>").lower()
-            current = {"name": name, "lines": [line], "deps": {base.lower()}}
+            current = {"name": name, "base": base, "lines": [line], "deps": {base}}
             stages.append(current)
             continue
         if current is None:
@@ -237,6 +237,25 @@ def cmd_recipe(dockerfile: str, target: str):
             print("\n".join(stage["lines"]))
 
 
+def cmd_parent(dockerfile: str, stage: str):
+    """The stage `stage` is FROM, when that is another stage of this Dockerfile.
+
+    Prints nothing when the stage builds on an external image, which is what
+    tells the caller there is no published parent image to build on top of.
+    """
+    _, stages = _dockerfile_stages(dockerfile)
+    by_name = {s["name"]: s for s in stages}
+    stage = stage.lower()
+    if stage not in by_name:
+        sys.exit(
+            f"error: {dockerfile} has no stage '{stage}'. "
+            f"Stages: {', '.join(s['name'] for s in stages)}"
+        )
+    base = by_name[stage]["base"]
+    if base in by_name:
+        print(base)
+
+
 def main(argv):
     if len(argv) >= 2 and argv[1] == "all":
         cmd_all()
@@ -246,10 +265,12 @@ def main(argv):
         cmd_publish_matrix(argv[2] if len(argv) >= 3 else None)
     elif len(argv) >= 4 and argv[1] == "recipe":
         cmd_recipe(argv[2], argv[3])
+    elif len(argv) >= 4 and argv[1] == "parent":
+        cmd_parent(argv[2], argv[3])
     else:
         sys.exit(
             f"usage: {argv[0]} all | image <tag> | publish-matrix [<semver>] "
-            f"| recipe <dockerfile> <stage>"
+            f"| recipe <dockerfile> <stage> | parent <dockerfile> <stage>"
         )
 
 

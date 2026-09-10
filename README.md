@@ -211,6 +211,13 @@ Within a run no image is built more than once: a push to `main` skips the
 `publish`, which pushes to both registries from a single `docker buildx
 build`.
 
+An add-on is built on top of the image its parent stage published, pinned by
+digest (`--build-context <parent>=docker-image://…@sha256:…`). `FROM full`
+names a stage rather than the published base image, so without that the add-on
+would re-run the base's `apt-get upgrade` and could end up on a different
+package set than the base image it extends. The recipe hash still covers the
+parent's instructions, so a change to the base rebuilds every add-on.
+
 A **release** of an image whose recipe is already published is not rebuilt
 either: its immutable tag is added to the digest that the moving tag already
 points at (`docker buildx imagetools create --prefer-index=false`, a
