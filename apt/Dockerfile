@@ -37,7 +37,10 @@ ARG QT_VERSION=6.11.2
 # The desktop kits take the same modules; the wasm one has its own list. No
 # qtpdf: nothing asks for a Pdf component (the QPdfWriter uses are QtGui), and
 # it does not resolve for win64_msvc2022_arm64_cross_compiled.
-ARG QT_DESKTOP_MODULES="qtwebchannel qtpositioning qthttpserver qtquick3d qtshadertools"
+# qt5compat is Core5Compat and qtwebengine the Documentation view, both
+# find_package(... REQUIRED); qtwebsockets is what qthttpserver needs to
+# resolve, as the distro package set already reflects.
+ARG QT_DESKTOP_MODULES="qt5compat qtwebchannel qtwebengine qtwebsockets qtpositioning qthttpserver qtquick3d qtshadertools"
 
 # ── base: OpenModelica build dependencies only ────────────────────────────────
 FROM ${DISTRO}:${VERSION} AS base
