@@ -473,6 +473,22 @@ FROM rust AS rust-qt-mac
 LABEL org.opencontainers.image.description="OpenModelica build-deps for the Qt macOS targets"
 COPY --from=qt-mac /opt/Qt /opt/Qt
 
+# .dmg without hdiutil: xorrisofs writes the HFS+ image (mkfs.hfsplus would need a
+# loop mount), libdmg-hfsplus' `dmg` compresses it. Not packaged by Debian.
+RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
+  && apt-get install -qy --no-install-recommends xorriso \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+ARG LIBDMG_HFSPLUS_COMMIT="1cc791e4173da9cb0b0cc16c5a1aaa25d5eb5efa"
+RUN git clone https://github.com/fanquake/libdmg-hfsplus /tmp/libdmg \
+  && git -C /tmp/libdmg checkout --quiet ${LIBDMG_HFSPLUS_COMMIT} \
+  && cmake -S /tmp/libdmg -B /tmp/libdmg/build -DCMAKE_BUILD_TYPE=Release \
+  && cmake --build /tmp/libdmg/build --parallel "$(nproc)" --target dmg-bin \
+  && install -m 0755 /tmp/libdmg/build/dmg/dmg /usr/local/bin/dmg \
+  && rm -rf /tmp/libdmg \
+  && dmg 2>&1 | head -1
+
 # ── OMSimulator add-on: full + X11 dev libs OMSimulator's GUI links against ───
 # Mirrors OMSimulator/.CI/cache/Dockerfile. The AddressSanitizer runtime is not
 # installed explicitly; the gcc/g++ toolchain pulls in its matching libasan when
