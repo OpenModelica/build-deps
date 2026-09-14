@@ -245,6 +245,8 @@ FROM base AS full
 #   - QT_PKGS_22_04    : Qt set for Ubuntu Jammy (older Qt6)
 #   - QT_PKGS_DEBIAN_12: Qt set for Debian Bookworm (missing qt6-httpserver-dev)
 #   - QT_PKGS          : Qt set for Ubuntu 24.04+ and Debian 13+ (the default)
+#                        Jammy/Bookworm qt6-quick3d-dev pulls in neither its
+#                        tools (balsam) nor ShaderTools; 24.04+ does.
 #   - INTEL_OCL_PKGS   : Intel OpenCL ICD; empty for Debian 13 (not in Trixie).
 #                        ocl-icd-opencl-dev + pocl-opencl-icd in COMMON_PKGS
 #                        still provide the ICD loader and a CPU runtime.
@@ -300,6 +302,8 @@ ARG QT_PKGS_22_04="\
     qt6-webengine-dev \
     qt6-webengine-dev-tools \
     qt6-quick3d-dev \
+    qt6-quick3d-dev-tools \
+    libqt6shadertools6-dev \
     qttools5-dev \
     qtwebengine5-dev"
 ARG QT_PKGS_DEBIAN_12="\
@@ -314,6 +318,8 @@ ARG QT_PKGS_DEBIAN_12="\
     qt6-webengine-dev \
     qt6-websockets-dev \
     qt6-quick3d-dev \
+    qt6-quick3d-dev-tools \
+    qt6-shadertools-dev \
     qtwebengine5-dev"
 ARG QT_PKGS="\
     libqt6core5compat6-dev \
