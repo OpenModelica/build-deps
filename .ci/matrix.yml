@@ -72,6 +72,7 @@ images:
     addons:
       - debug
       - newer-qt
+      - qt-aarch64-linux
       - omsimulator
 
   - os: debian
