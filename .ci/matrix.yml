@@ -71,6 +71,7 @@ images:
       VERSION: "22.04"
     addons:
       - debug
+      - newer-qt
       - omsimulator
 
   - os: debian
