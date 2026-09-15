@@ -107,6 +107,9 @@ ENV PATH="/opt/venv/bin:$PATH"
 # permalink so it needs no re-pinning here; keep the two in sync.
 # fmpy, junit_xml, simplejson and svgwrite are for the test suite, lxml for the
 # OMSimulator Python bindings.
+# gcovr is for -DOM_ENABLE_COVERAGE=ON (the jammy cmake-gcc Jenkins stages),
+# from pip because the distro's is too old: its coverage-report target passes
+# --gcov-ignore-errors=no_working_dir_found, which gcovr only has since 8.3.
 RUN pip install --no-cache-dir \
     breathe \
     gitpython \
@@ -118,6 +121,7 @@ RUN pip install --no-cache-dir \
     sphinxcontrib-bibtex \
     sphinxcontrib-programoutput \
     fmpy==0.3.29 \
+    "gcovr >= 8.3" \
     junit_xml \
     lxml \
     simplejson \
