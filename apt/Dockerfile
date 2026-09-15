@@ -10,6 +10,7 @@
 #   full     the published BASE image: base + User's Guide toolchain + Qt + python
 #   cmake-4  ADD-ON: full + CMake 4 from the official Kitware release
 #   debug    ADD-ON: full + GDB, Valgrind, and other debugging tools
+#   newer-qt ADD-ON: full + the aqt host Qt kit, and nothing else
 #   rust     ADD-ON: full + Rust toolchain + host Qt kit (Ubuntu only)
 #   rust-qt-wasm        ADD-ON: rust + Emscripten + Qt for WebAssembly
 #   rust-qt-win-x86_64  ADD-ON: rust + Qt for x86_64-pc-windows-msvc
@@ -198,8 +199,20 @@ FROM base AS qtdeps
 # download.qt.io and so does not see the Qt 6.11 Windows kits at all. Swappable
 # for aqtinstall>=3.4.0 once that releases.
 ARG AQTINSTALL="aqtinstall @ git+https://github.com/miurahr/aqtinstall.git@16db45a70b5905ad596941b223469bc86a56901e"
+# Two jammy-only problems, both from its python being from 2022, and the probe
+# is what keeps the fix off every other distro. pip 22.0.2 predates
+# --break-system-packages (pip 23.0) and rejects it outright, and nothing on
+# jammy is marked externally-managed to need it. Its setuptools 59.6 then leaks
+# into pip's build isolation, where setuptools_scm fails the aqtinstall sdist
+# with "AttributeError: ignore_egg_info_in_manifest", so pip and setuptools are
+# brought up to date first -- which also makes the flag available below.
+# Upgrading pip is jammy-only on purpose: where the distro ships a modern pip it
+# has no RECORD file, and `pip install --upgrade pip` fails trying to uninstall it.
 RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
   && apt-get install -y --no-install-recommends python3 python3-pip ca-certificates git \
+  && if ! python3 -m pip install --help | grep -q -- --break-system-packages; then \
+       python3 -m pip install --no-cache-dir --upgrade pip setuptools; \
+     fi \
   && python3 -m pip install --no-cache-dir --break-system-packages "${AQTINSTALL}" \
   && rm -rf /var/lib/apt/lists/*
 
@@ -397,6 +410,36 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     ${linux_perf} \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
+
+# ── newer-qt add-on: full + the aqt host Qt kit ───────────────────────────────
+# Qt's own binaries need glibc 2.34, so 22.04 is the oldest base anything linking
+# Qt 6.11 can use. This is where the Rust nightly's linux64 stages run.
+#
+# Not FROM rust: `full` has rustup and sccache already, and the nightly hands the
+# wasm artifacts over prebuilt, so none of the cross toolchains earn their size.
+# The distro's Qt 6.2.4 stays installed; CMAKE_PREFIX_PATH picks between them.
+#
+# patchelf deploys the kit into an install tree (.CI/scripts/linux-deploy.sh);
+# Qt ships no linuxdeployqt. libxcb-cursor0 is here to be deployed, not used: the
+# xcb plugin has loaded it by name since Qt 6.5, so no import table names it.
+#
+# RUST_NIGHTLY must match the OpenModelica workspace's rust-toolchain.toml.
+# Pre-installed so a build does not download a toolchain per container.
+FROM full AS newer-qt
+LABEL org.opencontainers.image.description="OpenModelica build-deps with a newer Qt than the distribution's"
+ARG QT_VERSION
+ARG RUST_NIGHTLY=nightly-2026-05-31
+ENV QT_HOST_PATH=/opt/Qt/${QT_VERSION}/gcc_64
+COPY --from=qt-host /opt/Qt /opt/Qt
+RUN export DEBIAN_FRONTEND=noninteractive && apt-get update \
+  && apt-get install -qy --no-install-recommends patchelf libxcb-cursor0 \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+RUN rustup toolchain install ${RUST_NIGHTLY} --profile minimal \
+      --component rustc-codegen-cranelift-preview --component clippy \
+      --component rustfmt --component rust-src \
+      --target wasm32-unknown-unknown --target wasm32-wasip1 \
+  && chmod ugo+rwx -R /usr/local/rustup
 
 # ── rust add-on: full + Rust toolchain + the host Qt kit ──────────────────────
 # Ubuntu only (uses flang). Built with `--target rust`. The cross-compilers stay
