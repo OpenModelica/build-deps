@@ -296,6 +296,7 @@ ARG COMMON_PKGS="\
     pandoc \
     pocl-opencl-icd \
     poppler-utils \
+    psmisc \
     python3-pip \
     python3-venv \
     subversion \
