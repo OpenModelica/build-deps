@@ -11,6 +11,7 @@
 #   cmake-4  ADD-ON: full + CMake 4 from the official Kitware release
 #   debug    ADD-ON: full + GDB, Valgrind, and other debugging tools
 #   newer-qt ADD-ON: full + the aqt host Qt kit, and nothing else
+#   qt-aarch64-linux ADD-ON: newer-qt + an aarch64 Linux cross toolchain
 #   rust     ADD-ON: full + Rust toolchain + host Qt kit (Ubuntu only)
 #   rust-qt-wasm        ADD-ON: rust + Emscripten + Qt for WebAssembly
 #   rust-qt-win-x86_64  ADD-ON: rust + Qt for x86_64-pc-windows-msvc
@@ -439,6 +440,85 @@ RUN rustup toolchain install ${RUST_NIGHTLY} --profile minimal \
       --component rustc-codegen-cranelift-preview --component clippy \
       --component rustfmt --component rust-src \
       --target wasm32-unknown-unknown --target wasm32-wasip1 \
+  && chmod ugo+rwx -R /usr/local/rustup
+
+# ── qt-aarch64-linux add-on: an aarch64 Linux cross toolchain and Qt ──────────
+# Ubuntu only: the arm64 packages come from ports.ubuntu.com. Cross-compiles the
+# aarch64 distribution on an x86-64 agent.
+#
+# The target Qt is jammy's own 6.2.4, not the 6.11.2 every other platform ships:
+# Qt builds every ARM64 Linux kit on Ubuntu 24.04, needing GLIBC_2.38 and
+# GLIBCXX_3.4.32 where jammy has 2.35 and 3.4.30. QT_HOST_PATH is /usr, `full`'s
+# amd64 Qt6 being the same 6.2.4 -- which is what cross-building Qt needs.
+#
+# FROM newer-qt leaves its x86-64 kit here unused (~3 GB); with the distro Qt
+# this could equally be FROM full.
+#
+# Unlike the Windows and macOS targets this cross has a real gfortran, so nothing
+# has to give up MOO or the optimization module.
+#
+# The rustc target goes in for both toolchains the tree uses: OpenModelica.rs
+# pins the nightly, SimulationRuntime/rust builds with stable.
+FROM newer-qt AS qt-aarch64-linux
+LABEL org.opencontainers.image.description="OpenModelica build-deps with an aarch64 Linux cross toolchain and Qt"
+ARG RUST_NIGHTLY=nightly-2026-05-31
+# `apt-get build-dep -a arm64 openmodelica` cannot be used: Build-Depends names
+# libboost-all-dev, which pulls libopenmpi-dev -> a native gfortran-11:arm64, and
+# a foreign-arch compiler is not co-installable. So the target-side dev packages
+# are named here -- Build-Depends minus the `:native` host tools, minus Qt5 (the
+# clients are Qt6), minus OpenSceneGraph (Quick3D is the animation backend), and
+# with boost cut to the components the tree links.
+#
+# --force-overwrite is for one packaging bug: libcurl4-gnutls-dev is
+# Multi-Arch: same but its /usr/bin/curl-config differs per architecture. The
+# arm64 copy wins, which is right here -- nothing builds host-side against curl.
+#
+# UNVALIDATED beyond a CLI cross build: derived from Build-Depends, not from a
+# GUI build that succeeded.
+ARG ARM64_DEV_PKGS="\
+    libboost-filesystem-dev:arm64 \
+    libboost-program-options-dev:arm64 \
+    libboost-system-dev:arm64 \
+    libcurl4-gnutls-dev:arm64 \
+    libexpat1-dev:arm64 \
+    libffi-dev:arm64 \
+    libhdf5-dev:arm64 \
+    liblapack-dev:arm64 \
+    libncurses5-dev:arm64 \
+    libqt6core5compat6-dev:arm64 \
+    libqt6opengl6-dev:arm64 \
+    libqt6shadertools6-dev:arm64 \
+    libqt6svg6-dev:arm64 \
+    libreadline-dev:arm64 \
+    libsqlite3-dev:arm64 \
+    libssl-dev:arm64 \
+    libxcursor-dev:arm64 \
+    libxi-dev:arm64 \
+    libxinerama-dev:arm64 \
+    libxrandr-dev:arm64 \
+    qt6-base-dev:arm64 \
+    qt6-quick3d-dev:arm64 \
+    qt6-tools-dev:arm64 \
+    qt6-webengine-dev:arm64 \
+    uuid-dev:arm64 \
+    zlib1g-dev:arm64"
+RUN export DEBIAN_FRONTEND=noninteractive && . /etc/os-release \
+  && dpkg --add-architecture arm64 \
+  && sed -i -E 's|^(deb(-src)?) (http)|\1 [arch=amd64] \3|' /etc/apt/sources.list \
+  && for s in ${VERSION_CODENAME} ${VERSION_CODENAME}-updates \
+              ${VERSION_CODENAME}-backports ${VERSION_CODENAME}-security; do \
+       echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports $s main restricted universe multiverse"; \
+     done > /etc/apt/sources.list.d/arm64.list \
+  && apt-get update \
+  && apt-get install -qy --no-install-recommends \
+       -o Dpkg::Options::=--force-overwrite \
+       crossbuild-essential-arm64 \
+       gfortran-aarch64-linux-gnu \
+       ${ARM64_DEV_PKGS} \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+RUN rustup target add aarch64-unknown-linux-gnu \
+  && rustup target add --toolchain ${RUST_NIGHTLY} aarch64-unknown-linux-gnu \
   && chmod ugo+rwx -R /usr/local/rustup
 
 # ── rust add-on: full + Rust toolchain + the host Qt kit ──────────────────────
