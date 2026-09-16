@@ -309,11 +309,16 @@ ARG COMMON_PKGS="\
     xsltproc \
     xvfb \
     zip"
+# libqt6webenginecore6-bin ships /usr/lib/qt6/libexec/QtWebEngineProcess, the
+# helper process QtWebEngine spawns on the first QWebEngineView. Nothing
+# depends on or recommends it, so without it a Qt6 build links and starts but
+# aborts with "Could not find QtWebEngineProcess" as soon as a view is shown.
 ARG QT_PKGS_22_04="\
     libqt6core5compat6-dev \
     libqt6opengl6-dev \
     libqt6openglwidgets6 \
     libqt6svg6-dev \
+    libqt6webenginecore6-bin \
     qt6-base-dev \
     qt6-l10n-tools \
     qt6-tools-dev \
@@ -330,6 +335,7 @@ ARG QT_PKGS_DEBIAN_12="\
     libqt6opengl6-dev \
     libqt6openglwidgets6 \
     libqt6svg6-dev \
+    libqt6webenginecore6-bin \
     qt6-base-dev \
     qt6-scxml-dev \
     qt6-tools-dev \
@@ -345,6 +351,7 @@ ARG QT_PKGS="\
     libqt6opengl6-dev \
     libqt6openglwidgets6 \
     libqt6svg6-dev \
+    libqt6webenginecore6-bin \
     qt6-base-dev \
     qt6-httpserver-dev \
     qt6-scxml-dev \
