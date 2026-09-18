@@ -182,3 +182,10 @@ RUN apk add --no-cache \
     libxinerama-dev \
     libxrandr-dev \
     mesa-dev
+
+# PySide6, pyqtgraph and scipy: OMSimulator/src/OMSimulatorGui's own runtime
+# dependencies (its requirements.txt), installed into the venv from `full`.
+RUN pip install --no-cache-dir \
+    PySide6 \
+    pyqtgraph \
+    scipy
