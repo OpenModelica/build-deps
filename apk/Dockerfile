@@ -107,9 +107,13 @@ RUN mkdir -p /cache/emscripten /cache/sccache /cache/runtest /cache/omlibrary \
 # ── venv: Python tooling, isolated so it caches independently ─────────────────
 # Built once and copied into `full`. Uses the same python3 as `full` (same
 # base image), so the relocated /opt/venv works there unchanged.
+# --system-site-packages: PySide6 and scipy have no musllinux wheels on PyPI
+# (see the `omsimulator` stage, which apk-installs Alpine's own py3-pyside6/
+# py3-scipy), so the venv needs to see the system site-packages to pick those
+# up; harmless for every other image, which never installs anything there.
 FROM base AS venv
 RUN apk add --no-cache python3 py3-pip
-RUN python3 -m venv /opt/venv
+RUN python3 -m venv --system-site-packages /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 # breathe .. sphinxcontrib-programoutput are the User's Guide's own
 # doc/UsersGuide/source/requirements.txt, copied instead of fetched from a
@@ -182,3 +186,13 @@ RUN apk add --no-cache \
     libxinerama-dev \
     libxrandr-dev \
     mesa-dev
+
+# PySide6, pyqtgraph and scipy: OMSimulator/src/OMSimulatorGui's own runtime
+# dependencies (its requirements.txt). PySide6 and scipy have no musllinux
+# wheels on PyPI, so they come from Alpine's own packages instead, visible to
+# the venv from `full` via --system-site-packages; pyqtgraph is pure Python
+# and installs fine via pip either way.
+RUN apk add --no-cache \
+    py3-pyside6 \
+    py3-scipy
+RUN pip install --no-cache-dir pyqtgraph

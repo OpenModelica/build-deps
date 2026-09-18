@@ -650,3 +650,10 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     libxrandr-dev \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
+
+# PySide6, pyqtgraph and scipy: OMSimulator/src/OMSimulatorGui's own runtime
+# dependencies (its requirements.txt), installed into the venv from `full`.
+RUN pip install --no-cache-dir \
+    PySide6 \
+    pyqtgraph \
+    scipy
