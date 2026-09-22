@@ -272,6 +272,10 @@ FROM base AS full
 #   - INTEL_OCL_PKGS   : Intel OpenCL ICD; empty for Debian 13 (not in Trixie).
 #                        ocl-icd-opencl-dev + pocl-opencl-icd in COMMON_PKGS
 #                        still provide the ICD loader and a CPU runtime.
+#   - UBUNTU_PKGS      : packaging tools, installed on Ubuntu only: rpm (which
+#                        is what ships /usr/bin/rpmbuild here -- Debian and
+#                        Ubuntu do not split out an rpm-build package), plus
+#                        the lintian and rpmlint package linters.
 ARG COMMON_PKGS="\
     aspell \
     bibtex2html \
@@ -367,6 +371,10 @@ ARG QT_PKGS="\
     qt6-shadertools-dev \
     qtwebengine5-dev"
 ARG INTEL_OCL_PKGS="intel-opencl-icd"
+ARG UBUNTU_PKGS="\
+    lintian \
+    rpm \
+    rpmlint"
 RUN export DEBIAN_FRONTEND=noninteractive && \
   apt-get update \
   && . /etc/os-release \
@@ -375,7 +383,11 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
        debian:12)    qt="${QT_PKGS_DEBIAN_12}" ;; \
        *)            qt="${QT_PKGS}" ;; \
      esac \
-  && apt-get install -qy ${COMMON_PKGS} ${qt} ${INTEL_OCL_PKGS} \
+  && case "${ID}" in \
+       ubuntu) extra="${UBUNTU_PKGS}" ;; \
+       *)      extra="" ;; \
+     esac \
+  && apt-get install -qy ${COMMON_PKGS} ${qt} ${INTEL_OCL_PKGS} ${extra} \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
