@@ -53,7 +53,7 @@ RUN printf '%s\n' \
 
 # Core toolchain and libraries needed to build the OpenModelica compiler.
 # Mirrors OMCompiler/README.Linux.md §1.2 (autotools/cmake, g++/gfortran, clang,
-# LAPACK/BLAS, hdf5, hwloc, boost, libcurl, expat, ncurses/readline, …).
+# LAPACK/BLAS, hdf5, hwloc, boost, libcurl, expat, minizip, ncurses/readline, …).
 RUN apk add --no-cache \
     autoconf \
     automake \
@@ -81,6 +81,7 @@ RUN apk add --no-cache \
     libxslt-dev \
     linux-headers \
     make \
+    minizip-dev \
     musl-dev \
     ncurses-dev \
     openblas-dev \

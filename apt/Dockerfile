@@ -294,7 +294,9 @@ ARG COMMON_PKGS="\
     jq \
     latexmk \
     libcurl4-gnutls-dev \
+    libexpat1-dev \
     libhdf5-dev \
+    libminizip-dev \
     libmldbm-perl \
     llvm \
     llvm-dev \
@@ -513,6 +515,7 @@ ARG ARM64_DEV_PKGS="\
     libffi-dev:arm64 \
     libhdf5-dev:arm64 \
     liblapack-dev:arm64 \
+    libminizip-dev:arm64 \
     libncurses5-dev:arm64 \
     libqt6core5compat6-dev:arm64 \
     libqt6opengl6-dev:arm64 \
