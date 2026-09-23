@@ -75,6 +75,10 @@ ENV SHELL=/bin/bash \
 #                   that packages it — EL 8/9 (from EPEL) and Fedora,
 #                   EL 10 dropped OpenSceneGraph entirely, so it has no OSG
 #                   backend and relies on Qt Quick 3D (Qt6) instead.
+#   - MINIZIP_EL_PKGS : zlib's classic minizip 1.x API for EL 8/9, from EPEL.
+#                   Their plain minizip-devel is minizip-ng 2.x/3.x, a different API.
+#   - MINIZIP_NG_PKGS : minizip-ng's zlib-compatible minizip API for EL 10 and
+#                   Fedora, which no longer package the classic minizip.
 # Distro-specific extras handled in the RUN case block below:
 #   - EL only : EPEL + CRB/powertools (Fedora needs neither).
 #   - EL 8/9  : autoconf 2.7x (from EPEL) symlinked as autoconf/autoreconf/…,
@@ -140,6 +144,8 @@ ARG FEDORA_PKGS="\
     lpsolve-devel \
     omniORB-devel"
 ARG OSG_PKGS="OpenSceneGraph-devel"
+ARG MINIZIP_EL_PKGS="minizip1.2-devel"
+ARG MINIZIP_NG_PKGS="minizip-ng-compat-devel"
 
 RUN dnf install -y dnf-plugins-core \
   && . /etc/os-release \
@@ -147,7 +153,7 @@ RUN dnf install -y dnf-plugins-core \
   # family (almalinux/rhel) is matched by PLATFORM_ID (platform:elN).
   && if [ "${ID}" = "fedora" ]; then \
        case "${VERSION_ID}" in \
-         43 | 44) qt="${QT6_PKGS}" && extra="${FEDORA_PKGS} ${OSG_PKGS}" ;; \
+         43 | 44) qt="${QT6_PKGS}" && extra="${FEDORA_PKGS} ${OSG_PKGS} ${MINIZIP_NG_PKGS}" ;; \
          *) echo "Unsupported Fedora VERSION_ID: ${VERSION_ID}" >&2 && exit 1 ;; \
        esac; \
      else \
@@ -156,18 +162,18 @@ RUN dnf install -y dnf-plugins-core \
            dnf install -y epel-release \
            && dnf config-manager --set-enabled powertools \
            && qt="${QT5_PKGS}" \
-           && extra="autoconf2.7x gcc-toolset-11-gcc gcc-toolset-11-gcc-c++ gcc-toolset-11-gcc-gfortran ${OSG_PKGS}" ;; \
+           && extra="autoconf2.7x gcc-toolset-11-gcc gcc-toolset-11-gcc-c++ gcc-toolset-11-gcc-gfortran ${OSG_PKGS} ${MINIZIP_EL_PKGS}" ;; \
          platform:el9) \
            dnf install -y epel-release \
            && dnf config-manager --set-enabled crb \
            && qt="${QT5_PKGS}" \
-           && extra="autoconf2.7x ${OSG_PKGS}" ;; \
+           && extra="autoconf2.7x ${OSG_PKGS} ${MINIZIP_EL_PKGS}" ;; \
          platform:el10) \
            dnf install -y epel-release \
            && dnf config-manager --set-enabled crb \
            && qt="${QT6_PKGS}" \
            # EL 10 has no OpenSceneGraph package; OMEdit uses Qt Quick 3D (Qt6).
-           && extra="" ;; \
+           && extra="${MINIZIP_NG_PKGS}" ;; \
          *) echo "Unsupported PLATFORM_ID: ${PLATFORM_ID}" >&2 && exit 1 ;; \
        esac; \
      fi \
