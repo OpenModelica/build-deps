@@ -112,7 +112,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 # doc/UsersGuide/source/requirements.txt, copied instead of fetched from a
 # permalink so it needs no re-pinning here; keep the two in sync.
 # fmpy, junit_xml, simplejson and svgwrite are for the test suite, lxml for the
-# OMSimulator Python bindings.
+# OMSimulator Python bindings, numpy and scipy for their calibration
+# (OMSimulator[calibration]) and its tests.
 # gcovr is for -DOM_ENABLE_COVERAGE=ON (the jammy cmake-gcc Jenkins stages),
 # from pip because the distro's is too old: its coverage-report target passes
 # --gcov-ignore-errors=no_working_dir_found, which gcovr only has since 8.3.
@@ -130,6 +131,8 @@ RUN pip install --no-cache-dir \
     "gcovr >= 8.3" \
     junit_xml \
     lxml \
+    numpy \
+    scipy \
     simplejson \
     svgwrite
 
