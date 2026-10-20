@@ -63,6 +63,8 @@ ENV SHELL=/bin/bash \
     LANG=C.UTF-8 \
     LC_ALL=C.UTF-8
 
+# Ubuntu 22.04 lacks qt6-httpserver-dev, which only OpenModelica's MCP server
+# needs; the pkg.openmodelica.nomcp build profile drops that dependency.
 RUN export DEBIAN_FRONTEND=noninteractive && \
   apt-get update \
   && apt-get upgrade -qy \
@@ -82,7 +84,11 @@ RUN export DEBIAN_FRONTEND=noninteractive && \
     $(cat /etc/os-release | grep "\(UBUNTU\\|DEBIAN\\|VERSION\)_CODENAME" | sort | cut -d= -f 2 | head -1) \
     nightly" | tee -a /etc/apt/sources.list.d/openmodelica.list > /dev/null \
   && apt-get update \
-  && apt-get build-dep -qy openmodelica \
+  && if apt-cache show qt6-httpserver-dev > /dev/null 2>&1; then \
+       apt-get build-dep -qy openmodelica; \
+     else \
+       apt-get build-dep -qy -P pkg.openmodelica.nomcp openmodelica; \
+     fi \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -254,14 +260,16 @@ RUN aqt install-qt mac desktop ${QT_VERSION} clang_64 -m ${QT_DESKTOP_MODULES} -
 #   - tools to build the User's Guide (common to all versions)
 #   - Qt5/Qt6 packages selected by distro and version:
 #       ubuntu:22.04  older Qt6 (Jammy), lacks some packages added in 24.04+
-#       debian:12     Bookworm Qt6, lacks qt6-httpserver-dev (added in Trixie)
+#       debian:12     Bookworm Qt6, needs the Quick3D tools listed explicitly
 #       *             Ubuntu 24.04+ and Debian 13+
 FROM base AS full
 
 # Package lists as build-args, so they are easy to read and to override:
 #   - COMMON_PKGS      : tools common to all distro versions (User's Guide, …)
 #   - QT_PKGS_22_04    : Qt set for Ubuntu Jammy (older Qt6)
-#   - QT_PKGS_DEBIAN_12: Qt set for Debian Bookworm (missing qt6-httpserver-dev)
+#   - QT_PKGS_DEBIAN_12: Qt set for Debian Bookworm; adds qt6-quick3d-dev-tools
+#                        and omits qt6-httpserver-dev, which base's build-dep
+#                        already installs (Bookworm ships 6.4.2)
 #   - QT_PKGS          : Qt set for Ubuntu 24.04+ and Debian 13+ (the default)
 #                        Jammy/Bookworm qt6-quick3d-dev pulls in neither its
 #                        tools (balsam) nor ShaderTools. Noble's does not pull in
